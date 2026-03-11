@@ -117,7 +117,7 @@ async function fetchSettings() {
 
 async function updateSettings(type, settingsData) {
   try {
-    await axios.put(\`/api/settings/\${type}\`, settingsData);
+    await axios.put(`/api/settings/${type}`, settingsData);
     return { success: true };
   } catch (error) {
     console.error('設定更新エラー:', error);

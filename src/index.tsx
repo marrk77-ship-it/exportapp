@@ -303,8 +303,24 @@ app.get('/', (c) => {
     <\/style>
 </head>
 <body class="bg-gray-50">
-    <div id="app"><\/div>
+    <div id="app">読み込み中...</div>
     
+    <script>
+      console.log('HTML loaded');
+      
+      // Debug: Check if libraries are loaded
+      window.addEventListener('load', function() {
+        console.log('Page loaded');
+        console.log('axios:', typeof axios);
+        console.log('Papa:', typeof Papa);
+        
+        if (typeof axios === 'undefined') {
+          document.getElementById('app').innerHTML = '<div class="p-8 text-red-600">エラー: axiosが読み込めませんでした</div>';
+        } else if (typeof Papa === 'undefined') {
+          document.getElementById('app').innerHTML = '<div class="p-8 text-red-600">エラー: PapaParse が読み込めませんでした</div>';
+        }
+      });
+    <\/script>
     <script src="https://cdn.jsdelivr.net/npm/axios@1.6.0/dist/axios.min.js"><\/script>
     <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"><\/script>
     <script src="/static/app.js"><\/script>
