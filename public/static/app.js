@@ -671,8 +671,14 @@ function exportSpreadsheet(type) {
 
   // Generate CSV
   const csv = Papa.unparse(outputData);
-  const bom = '\\ufeff';
-  const blob = new Blob([bom + csv], { type: 'text/csv;charset=utf-8;' });
+  
+  // Convert to Shift-JIS for Excel compatibility
+  const sjisArray = Encoding.convert(Encoding.stringToCode(csv), {
+    to: 'SJIS',
+    from: 'UNICODE'
+  });
+  const uint8Array = new Uint8Array(sjisArray);
+  const blob = new Blob([uint8Array], { type: 'text/csv;charset=Shift_JIS;' });
   
   // Download
   const filename = `${typeSetting.file_prefix}_${new Date().toISOString().split('T')[0]}.csv`;
