@@ -16,7 +16,7 @@ app.use('/api/*', cors({
 }))
 
 // Serve static files
-app.use('/static/*', serveStatic({ root: './public' }))
+app.use('/static/*', serveStatic())
 
 // ==================== Authentication API ====================
 

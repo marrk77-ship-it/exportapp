@@ -689,7 +689,7 @@ document.addEventListener('submit', async (e) => {
       await fetchSettings();
       
       // Update button text
-      document.getElementById(\`\${type}BtnText\`).textContent = settingsData.button_name;
+      document.getElementById(`${type}BtnText`).textContent = settingsData.button_name;
       
       closeSettingsModal();
     } else {
