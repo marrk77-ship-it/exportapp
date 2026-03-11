@@ -129,7 +129,7 @@ async function updateSettings(type, settingsData) {
 
 function showLoginScreen() {
   const app = document.getElementById('app');
-  app.innerHTML = \`
+  app.innerHTML = `
     <div class="min-h-screen flex items-center justify-center px-4">
       <div class="bg-white p-8 rounded-lg shadow-lg max-w-md w-full">
         <div class="text-center mb-8">
@@ -178,7 +178,7 @@ function showLoginScreen() {
         </div>
       </div>
     </div>
-  \`;
+  `;
 
   document.getElementById('loginForm').addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -203,7 +203,7 @@ async function showMainApp() {
   const dataResult = await fetchCSVData();
   
   const app = document.getElementById('app');
-  app.innerHTML = \`
+  app.innerHTML = `
     <div class="min-h-screen">
       <!-- Header -->
       <div class="bg-white shadow-sm">
@@ -213,7 +213,7 @@ async function showMainApp() {
               <i class="fas fa-file-invoice mr-2"></i>データ台帳管理システム
             </h1>
             <p class="text-sm text-gray-600 mt-1">
-              <i class="fas fa-user mr-1"></i>\${currentUser.name || currentUser.login_id}
+              <i class="fas fa-user mr-1"></i>${currentUser.name || currentUser.login_id}
             </p>
           </div>
           <div class="flex gap-4">
@@ -258,14 +258,14 @@ async function showMainApp() {
             </button>
           </div>
           
-          <div id="previewSection" class="mt-6 \${csvData.length > 0 ? '' : 'hidden'}">
+          <div id="previewSection" class="mt-6 ${csvData.length > 0 ? '' : 'hidden'}">
             <h3 class="text-lg font-bold text-gray-700 mb-3">
               <i class="fas fa-eye mr-2"></i>データプレビュー（最初の5件）
             </h3>
             <div id="previewTable" class="overflow-x-auto"></div>
             <p class="text-sm text-gray-600 mt-3">
               <i class="fas fa-check-circle text-green-600 mr-2"></i>
-              <span id="rowCount">\${csvData.length}</span>行のデータが読み込まれています
+              <span id="rowCount">${csvData.length}</span>行のデータが読み込まれています
             </p>
           </div>
         </div>
@@ -283,31 +283,31 @@ async function showMainApp() {
             <button 
               id="taxBtn"
               onclick="exportSpreadsheet('tax')"
-              disabled="\${csvData.length === 0}"
+              disabled="${csvData.length === 0}"
               class="bg-blue-500 hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-bold py-8 px-6 rounded-lg text-2xl transition duration-200 shadow-lg hover:shadow-xl"
             >
               <i class="fas fa-calculator text-4xl mb-3 block"></i>
-              <span id="taxBtnText">\${settings.tax?.button_name || '税金'}</span>
+              <span id="taxBtnText">${settings.tax?.button_name || '税金'}</span>
             </button>
             
             <button 
               id="invoiceBtn"
               onclick="exportSpreadsheet('invoice')"
-              disabled="\${csvData.length === 0}"
+              disabled="${csvData.length === 0}"
               class="bg-green-500 hover:bg-green-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-bold py-8 px-6 rounded-lg text-2xl transition duration-200 shadow-lg hover:shadow-xl"
             >
               <i class="fas fa-file-invoice text-4xl mb-3 block"></i>
-              <span id="invoiceBtnText">\${settings.invoice?.button_name || '請求書'}</span>
+              <span id="invoiceBtnText">${settings.invoice?.button_name || '請求書'}</span>
             </button>
             
             <button 
               id="ledgerBtn"
               onclick="exportSpreadsheet('ledger')"
-              disabled="\${csvData.length === 0}"
+              disabled="${csvData.length === 0}"
               class="bg-purple-500 hover:bg-purple-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-bold py-8 px-6 rounded-lg text-2xl transition duration-200 shadow-lg hover:shadow-xl"
             >
               <i class="fas fa-book text-4xl mb-3 block"></i>
-              <span id="ledgerBtnText">\${settings.ledger?.button_name || '全体の台帳'}</span>
+              <span id="ledgerBtnText">${settings.ledger?.button_name || '全体の台帳'}</span>
             </button>
           </div>
         </div>
@@ -428,7 +428,7 @@ async function showMainApp() {
     <div id="toast" class="hidden fixed bottom-4 right-4 bg-gray-800 text-white px-6 py-4 rounded-lg shadow-lg z-50">
       <p id="toastMessage"></p>
     </div>
-  \`;
+  `;
 
   // Display preview if data exists
   if (csvData.length > 0) {
@@ -502,7 +502,7 @@ async function processFile(file) {
         csvData = results.data;
         displayPreview();
         enableExportButtons();
-        showToast(\`\${uploadResult.count}行のデータを読み込みました\`, 'success');
+        showToast(`${uploadResult.count}行のデータを読み込みました`, 'success');
       } else {
         showToast(uploadResult.error, 'error');
       }
@@ -531,7 +531,7 @@ function displayPreview() {
   tableHtml += '<thead class="bg-gray-50"><tr>';
   
   headers.forEach(header => {
-    tableHtml += \`<th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">\${header}</th>\`;
+    tableHtml += `<th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">${header}</th>`;
   });
   
   tableHtml += '</tr></thead><tbody class="bg-white divide-y divide-gray-200">';
@@ -539,7 +539,7 @@ function displayPreview() {
   previewData.forEach(row => {
     tableHtml += '<tr>';
     headers.forEach(header => {
-      tableHtml += \`<td class="px-4 py-2 whitespace-nowrap text-gray-900">\${row[header] || ''}</td>\`;
+      tableHtml += `<td class="px-4 py-2 whitespace-nowrap text-gray-900">${row[header] || ''}</td>`;
     });
     tableHtml += '</tr>';
   });
@@ -616,13 +616,13 @@ function exportSpreadsheet(type) {
   const blob = new Blob([bom + csv], { type: 'text/csv;charset=utf-8;' });
   
   // Download
-  const filename = \`\${typeSetting.file_prefix}_\${new Date().toISOString().split('T')[0]}.csv\`;
+  const filename = `${typeSetting.file_prefix}_${new Date().toISOString().split('T')[0]}.csv`;
   const link = document.createElement('a');
   link.href = URL.createObjectURL(blob);
   link.download = filename;
   link.click();
   
-  showToast(\`\${outputData.length}行のデータを出力しました\`, 'success');
+  showToast(`${outputData.length}行のデータを出力しました`, 'success');
 }
 
 // ==================== Settings Modal ====================
