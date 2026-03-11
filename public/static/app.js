@@ -471,6 +471,30 @@ async function handleFileSelect(event) {
   }
 }
 
+// Check if text contains garbled characters (mojibake)
+function hasGarbledText(text) {
+  // Check for common mojibake patterns
+  const garbledPatterns = [
+    /[\u00C0-\u00FF]{2,}/,  // Multiple accented characters in a row
+    /\uFFFD/,               // Replacement character
+  ];
+  
+  return garbledPatterns.some(pattern => pattern.test(text));
+}
+
+// Check if data looks garbled
+function isDataGarbled(data) {
+  if (!data || data.length === 0) return false;
+  
+  // Check headers and first few rows
+  const firstRow = data[0];
+  const keysToCheck = Object.keys(firstRow).slice(0, 5);
+  const valuesToCheck = keysToCheck.map(key => firstRow[key]).filter(v => v);
+  
+  const textToCheck = [...keysToCheck, ...valuesToCheck].join(' ');
+  return hasGarbledText(textToCheck);
+}
+
 async function processFile(file) {
   if (!file.name.endsWith('.csv')) {
     showToast('CSVファイルを選択してください', 'error');
@@ -479,39 +503,74 @@ async function processFile(file) {
 
   showToast('ファイルを読み込み中...', 'info');
 
-  Papa.parse(file, {
-    header: true,
-    skipEmptyLines: true,
-    encoding: 'UTF-8',
-    complete: async (results) => {
-      if (results.errors.length > 0) {
-        console.error('CSV解析エラー:', results.errors);
-        showToast('CSVファイルの解析に失敗しました', 'error');
-        return;
-      }
+  // First try with UTF-8
+  parseFileWithEncoding(file, 'UTF-8');
+}
 
-      if (results.data.length === 0) {
-        showToast('データが含まれていません', 'error');
-        return;
-      }
+function parseFileWithEncoding(file, encoding) {
+  const reader = new FileReader();
+  
+  reader.onload = async (e) => {
+    const text = e.target.result;
+    
+    Papa.parse(text, {
+      header: true,
+      skipEmptyLines: true,
+      complete: async (results) => {
+        if (results.errors.length > 0) {
+          console.error('CSV解析エラー:', results.errors);
+          showToast('CSVファイルの解析に失敗しました', 'error');
+          return;
+        }
 
-      // Upload to server
-      const uploadResult = await uploadCSVData(results.data);
-      
-      if (uploadResult.success) {
-        csvData = results.data;
-        displayPreview();
-        enableExportButtons();
-        showToast(`${uploadResult.count}行のデータを読み込みました`, 'success');
-      } else {
-        showToast(uploadResult.error, 'error');
+        if (results.data.length === 0) {
+          showToast('データが含まれていません', 'error');
+          return;
+        }
+
+        // Check if data is garbled and retry with Shift-JIS
+        if (encoding === 'UTF-8' && isDataGarbled(results.data)) {
+          console.log('文字化けを検出しました。Shift-JISで再試行します...');
+          parseFileWithEncoding(file, 'Shift-JIS');
+          return;
+        }
+
+        // Upload to server
+        const uploadResult = await uploadCSVData(results.data);
+        
+        if (uploadResult.success) {
+          csvData = results.data;
+          displayPreview();
+          enableExportButtons();
+          showToast(`${uploadResult.count}行のデータを読み込みました (${encoding})`, 'success');
+        } else {
+          showToast(uploadResult.error, 'error');
+        }
+      },
+      error: (error) => {
+        console.error('CSV読み込みエラー:', error);
+        
+        // If UTF-8 failed, try Shift-JIS
+        if (encoding === 'UTF-8') {
+          console.log('UTF-8での読み込みに失敗しました。Shift-JISで再試行します...');
+          parseFileWithEncoding(file, 'Shift-JIS');
+        } else {
+          showToast('ファイルの読み込みに失敗しました', 'error');
+        }
       }
-    },
-    error: (error) => {
-      console.error('CSV読み込みエラー:', error);
-      showToast('ファイルの読み込みに失敗しました', 'error');
-    }
-  });
+    });
+  };
+  
+  reader.onerror = () => {
+    showToast('ファイルの読み込みに失敗しました', 'error');
+  };
+  
+  // Read file with specified encoding
+  if (encoding === 'Shift-JIS') {
+    reader.readAsText(file, 'Shift_JIS');
+  } else {
+    reader.readAsText(file, 'UTF-8');
+  }
 }
 
 function displayPreview() {
