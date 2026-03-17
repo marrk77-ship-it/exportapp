@@ -180,6 +180,13 @@ function showLoginScreen() {
           <p class="mb-2">テストアカウント:</p>
           <p>ID: client1 / Password: password123</p>
           <p>ID: client2 / Password: password123</p>
+          <button 
+            type="button"
+            onclick="window.testLogin()"
+            class="mt-3 w-full bg-gray-600 hover:bg-gray-700 text-white font-medium py-2 px-4 rounded-lg transition duration-200"
+          >
+            <i class="fas fa-bolt mr-2"></i>テストログイン（client1で自動ログイン）
+          </button>
         </div>
       </div>
     </div>
@@ -812,3 +819,9 @@ window.exportSpreadsheet = exportSpreadsheet;
 window.showSettingsModal = showSettingsModal;
 window.closeSettingsModal = closeSettingsModal;
 window.switchSettingsTab = switchSettingsTab;
+window.testLogin = async function() {
+  const result = await login('client1', 'password123');
+  if (!result.success) {
+    alert('テストログインに失敗しました: ' + result.error);
+  }
+};
