@@ -28,17 +28,21 @@ async function checkSession() {
       showLoginScreen();
     }
   } catch (error) {
-    console.error('セッションチェックエラー:', error);
+    console.error('セッションチェックエラー:', error.message || error);
+    console.error('エラー詳細:', error.response?.data || error.response);
     showLoginScreen();
   }
 }
 
 async function login(loginId, password) {
   try {
+    console.log('ログイン試行:', loginId);
     const response = await axios.post('/api/login', {
       login_id: loginId,
       password: password
     });
+    
+    console.log('ログインレスポンス:', response.data);
     
     if (response.data.success) {
       currentUser = response.data.user;
@@ -46,7 +50,8 @@ async function login(loginId, password) {
       return { success: true };
     }
   } catch (error) {
-    console.error('ログインエラー:', error);
+    console.error('ログインエラー:', error.message || error);
+    console.error('エラー詳細:', error.response?.data || error.response);
     return { 
       success: false, 
       error: error.response?.data?.error || 'ログインに失敗しました' 
