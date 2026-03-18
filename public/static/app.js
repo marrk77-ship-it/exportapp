@@ -194,9 +194,11 @@ function showLoginScreen() {
 
   document.getElementById('loginForm').addEventListener('submit', async (e) => {
     e.preventDefault();
-    const loginId = document.getElementById('loginId').value;
-    const password = document.getElementById('password').value;
+    const loginId = document.getElementById('loginId').value.trim();
+    const password = document.getElementById('password').value.trim();
     const errorDiv = document.getElementById('loginError');
+    
+    console.log('フォームから取得した値:', { loginId, password, loginIdLength: loginId.length, passwordLength: password.length });
     
     errorDiv.classList.add('hidden');
     

@@ -22,9 +22,21 @@ app.use('/static/*', serveStatic())
 
 // Login
 app.post('/api/login', async (c) => {
-  const { login_id, password } = await c.req.json()
+  let { login_id, password } = await c.req.json()
+  
+  // Trim whitespace
+  login_id = login_id?.trim()
+  password = password?.trim()
+  
+  console.log('ログインリクエスト受信:', { 
+    login_id, 
+    password: password ? '***' : undefined,
+    login_id_length: login_id?.length,
+    password_length: password?.length 
+  })
 
   if (!login_id || !password) {
+    console.log('バリデーションエラー: login_idまたはpasswordが空')
     return c.json({ error: 'ログインIDとパスワードを入力してください' }, 400)
   }
 
@@ -33,14 +45,20 @@ app.post('/api/login', async (c) => {
     'SELECT * FROM users WHERE login_id = ?'
   ).bind(login_id).first<User>()
 
+  console.log('データベース検索結果:', user ? `ユーザー発見: ${user.login_id}` : 'ユーザーが見つかりません')
+
   if (!user) {
+    console.log('ログイン失敗: ユーザーが存在しない')
     return c.json({ error: 'ログインIDまたはパスワードが正しくありません' }, 401)
   }
 
   // Verify password
+  console.log('パスワード検証開始...')
   const isValid = await bcrypt.compare(password, user.password_hash)
+  console.log('パスワード検証結果:', isValid)
   
   if (!isValid) {
+    console.log('ログイン失敗: パスワードが一致しない')
     return c.json({ error: 'ログインIDまたはパスワードが正しくありません' }, 401)
   }
 
