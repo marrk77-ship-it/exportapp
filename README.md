@@ -337,7 +337,29 @@ npx wrangler d1 execute webapp-production --remote --command="SELECT id, login_i
 
 データベースの確認・管理用のCLIツールを用意しています。
 
-#### 基本的な使い方
+#### 🎯 簡単な使い方（対話型メニュー）
+
+**本番環境の管理:**
+```bash
+cd /home/user/webapp
+./db-menu-prod.sh
+```
+
+**ローカル環境の管理:**
+```bash
+cd /home/user/webapp
+./db-menu-local.sh
+```
+
+対話型メニューで以下の操作ができます:
+1. ユーザー一覧を表示
+2. CSVデータ件数を表示
+3. 特定ユーザーのCSVデータを表示
+4. 特定ユーザーのエクスポート設定を表示
+5. 特定ユーザーのCSVデータを削除
+6. SQLクエリを実行
+
+#### 📋 コマンドラインからの使い方
 
 ```bash
 # ヘルプ表示
