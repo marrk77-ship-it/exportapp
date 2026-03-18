@@ -1,0 +1,18 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "webapp",
+  "compatibility_date": "2026-03-11",
+  "pages_build_output_dir": "./dist",
+  "compatibility_flags": ["nodejs_compat"],
+  
+  // D1 Database configuration
+  // Create database: npx wrangler d1 create webapp-production
+  // Then add the database_id here
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "webapp-production",
+      "database_id": ""
+    }
+  ]
+}
