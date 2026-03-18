@@ -333,6 +333,61 @@ npx wrangler d1 execute webapp-production --remote --command="SELECT id, login_i
 - **client1** / password123 / テストクライアント1
 - **client2** / password123 / テストクライアント2
 
+### データベース管理ツール (db-admin.js)
+
+データベースの確認・管理用のCLIツールを用意しています。
+
+#### 基本的な使い方
+
+```bash
+# ヘルプ表示
+npm run db:admin -- --help
+
+# ユーザー一覧表示（ローカル）
+npm run db:users
+
+# ユーザー一覧表示（本番環境）
+npm run db:users:prod
+
+# CSVデータ件数表示（ローカル）
+npm run db:count
+
+# CSVデータ件数表示（本番環境）
+npm run db:count:prod
+
+# 特定ユーザーのCSVデータ表示（ローカル）
+npm run db:admin show-csv client1
+
+# 特定ユーザーのCSVデータ表示（本番環境、最大20件）
+npm run db:admin show-csv client1 --remote --limit 20
+
+# 特定ユーザーのエクスポート設定表示
+npm run db:admin show-settings client1
+
+# 特定ユーザーのエクスポート設定表示（本番環境）
+npm run db:admin show-settings client1 --remote
+
+# 特定ユーザーのCSVデータ削除（注意: 元に戻せません）
+npm run db:admin delete-csv client1
+
+# 任意のSQLクエリを実行
+npm run db:admin sql "SELECT COUNT(*) FROM users"
+
+# 本番環境でSQLクエリを実行
+npm run db:admin sql "SELECT COUNT(*) FROM users" --remote
+```
+
+#### すべてのコマンド
+
+| コマンド | 説明 | オプション |
+|---------|------|-----------|
+| `list-users` | 全ユーザーを表示 | `-r, --remote` |
+| `count-csv` | ユーザーごとのCSVデータ件数を表示 | `-r, --remote` |
+| `show-csv <login_id>` | 特定ユーザーのCSVデータを表示 | `-r, --remote`<br>`-l, --limit <number>` |
+| `delete-csv <login_id>` | 特定ユーザーのCSVデータを削除 | `-r, --remote` |
+| `show-settings <login_id>` | 特定ユーザーのエクスポート設定を表示 | `-r, --remote` |
+| `sql <query>` | 任意のSQLクエリを実行 | `-r, --remote` |
+
 ### 新しいユーザーの追加
 
 **方法1: add-user.jsスクリプトを使用（推奨）**

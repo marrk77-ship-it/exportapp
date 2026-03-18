@@ -15,7 +15,12 @@
     "db:reset": "rm -rf .wrangler/state/v3/d1 && npm run db:migrate:local",
     "db:console:local": "wrangler d1 execute webapp-production --local",
     "db:console:prod": "wrangler d1 execute webapp-production",
-    "clean-port": "fuser -k 3000/tcp 2>/dev/null || true"
+    "clean-port": "fuser -k 3000/tcp 2>/dev/null || true",
+    "db:admin": "node db-admin.js",
+    "db:users": "node db-admin.js list-users",
+    "db:users:prod": "node db-admin.js list-users --remote",
+    "db:count": "node db-admin.js count-csv",
+    "db:count:prod": "node db-admin.js count-csv --remote"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",
@@ -24,6 +29,7 @@
   "devDependencies": {
     "@hono/vite-build": "^1.2.0",
     "@hono/vite-dev-server": "^0.18.2",
+    "commander": "^14.0.3",
     "vite": "^6.3.5",
     "wrangler": "^4.4.0"
   }
