@@ -6,13 +6,12 @@
   "compatibility_flags": ["nodejs_compat"],
   
   // D1 Database configuration
-  // Create database: npx wrangler d1 create webapp-production
-  // Then add the database_id here
+  // Database ID for production environment
   "d1_databases": [
     {
       "binding": "DB",
       "database_name": "webapp-production",
-      "database_id": ""
+      "database_id": "27c8427d-d8ba-4dc6-8770-829c90cb283b"
     }
   ]
 }
