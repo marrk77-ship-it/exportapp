@@ -288,6 +288,118 @@ npm run clean-port             # ポート3000をクリーンアップ
 - **データ分離**: ユーザーIDによる完全なデータ分離
 - **SQLインジェクション対策**: プリペアドステートメント使用
 
+## 💾 データの保存場所
+
+### ローカル開発環境
+
+**データベースファイルの場所:**
+```
+/home/user/webapp/.wrangler/state/v3/d1/miniflare-D1DatabaseObject/*.sqlite
+```
+
+**データベースの内容:**
+1. **users テーブル**: ログインID、パスワードハッシュ、ユーザー名
+2. **csv_data テーブル**: アップロードされたCSVデータ（ユーザーごと）
+3. **export_settings テーブル**: 各ユーザーの出力設定（税金、請求書、全体の台帳）
+
+### データベースの直接確認
+
+```bash
+# ユーザー一覧を表示
+npx wrangler d1 execute webapp-production --local --command="SELECT id, login_id, name FROM users"
+
+# CSVデータの件数を確認
+npx wrangler d1 execute webapp-production --local --command="SELECT user_id, COUNT(*) as count FROM csv_data GROUP BY user_id"
+
+# エクスポート設定を確認
+npx wrangler d1 execute webapp-production --local --command="SELECT user_id, export_type, button_name, file_prefix FROM export_settings"
+```
+
+### 本番環境
+
+本番環境では、Cloudflare D1に保存されます。確認方法:
+
+```bash
+# 本番データベースのユーザー一覧
+npx wrangler d1 execute webapp-production --remote --command="SELECT id, login_id, name FROM users"
+```
+
+## 👤 ユーザー管理
+
+### 既存のテストユーザー
+
+現在、以下の2つのテストアカウントが登録されています（`seed.sql`で作成）:
+
+- **client1** / password123 / テストクライアント1
+- **client2** / password123 / テストクライアント2
+
+### 新しいユーザーの追加
+
+**方法1: add-user.jsスクリプトを使用（推奨）**
+
+```bash
+# SQLを生成
+node add-user.js <login_id> <password> <name>
+
+# 例: client3というユーザーを追加
+node add-user.js client3 mypassword123 テストクライアント3
+
+# 生成されたSQLをコピーして実行
+npx wrangler d1 execute webapp-production --local --command="生成されたSQL"
+```
+
+**方法2: 手動でSQLを作成**
+
+1. パスワードハッシュを生成:
+```bash
+node generate-hashes.js
+```
+
+2. SQLファイルを作成（例: `add-client3.sql`）:
+```sql
+-- ユーザーを追加
+INSERT INTO users (login_id, password_hash, name) 
+VALUES ('client3', 'ここにハッシュ値', 'テストクライアント3');
+
+-- デフォルトのエクスポート設定を追加
+INSERT INTO export_settings (user_id, export_type, button_name, file_prefix, columns, filter_column, filter_value, sort_column) VALUES
+  ((SELECT id FROM users WHERE login_id='client3'), 'tax', '税金', '税金スプレッドシート', '', '', '', ''),
+  ((SELECT id FROM users WHERE login_id='client3'), 'invoice', '請求書', '請求書スプレッドシート', '', '', '', ''),
+  ((SELECT id FROM users WHERE login_id='client3'), 'ledger', '全体の台帳', '完全台帳', '', '', '', '');
+```
+
+3. SQLを実行:
+```bash
+# ローカル環境
+npx wrangler d1 execute webapp-production --local --file=./add-client3.sql
+
+# 本番環境
+npx wrangler d1 execute webapp-production --remote --file=./add-client3.sql
+```
+
+### ユーザーの削除
+
+```bash
+# ユーザーとそのデータを完全に削除（注意: 元に戻せません）
+npx wrangler d1 execute webapp-production --local --command="
+DELETE FROM csv_data WHERE user_id = (SELECT id FROM users WHERE login_id='client3');
+DELETE FROM export_settings WHERE user_id = (SELECT id FROM users WHERE login_id='client3');
+DELETE FROM users WHERE login_id='client3';
+"
+```
+
+### パスワードの変更
+
+```bash
+# 1. 新しいパスワードハッシュを生成
+node -e "import('bcryptjs').then(bcrypt => bcrypt.default.hash('新しいパスワード', 10).then(hash => console.log(hash)))"
+
+# 2. パスワードハッシュを更新
+npx wrangler d1 execute webapp-production --local --command="
+UPDATE users SET password_hash='新しいハッシュ値' WHERE login_id='client1';
+"
+```
+
 ## 🐛 トラブルシューティング
 
 ### ログインできない場合
