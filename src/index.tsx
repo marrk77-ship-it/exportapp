@@ -606,7 +606,7 @@ app.get('/', (c) => {
     <script src="https://cdn.jsdelivr.net/npm/axios@1.6.0/dist/axios.min.js"><\/script>
     <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"><\/script>
     <script src="https://cdn.jsdelivr.net/npm/encoding-japanese@2.0.0/encoding.min.js"><\/script>
-    <script src="/static/app.js"><\/script>
+    <script src="/static/app.js?v=${Date.now()}"><\/script>
 </body>
 </html>`;
   return c.html(html)
