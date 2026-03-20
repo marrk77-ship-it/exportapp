@@ -73,7 +73,7 @@ app.post('/api/login', async (c) => {
 
   // Set cookie (in production, use encrypted/signed tokens)
   const sessionToken = base64Encode(JSON.stringify(session))
-  const isProduction = c.req.url.includes('.pages.dev') || c.req.url.includes('cloudflare')
+  const isProduction = c.req.url.includes('.pages.dev') || c.req.url.includes('cloudflare') || c.req.url.includes('exportapp-tw.tech')
   setCookie(c, 'session', sessionToken, {
     maxAge: 7 * 24 * 60 * 60, // 7 days
     httpOnly: true,
