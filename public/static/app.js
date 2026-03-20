@@ -271,14 +271,14 @@ async function showMainApp() {
             </button>
           </div>
           
-          <div id="previewSection" class="mt-6 ${csvData.length > 0 ? '' : 'hidden'}">
+          <div id="previewSection" class="mt-6 hidden">
             <h3 class="text-lg font-bold text-gray-700 mb-3">
               <i class="fas fa-eye mr-2"></i>データプレビュー（最初の5件）
             </h3>
             <div id="previewTable" class="overflow-x-auto"></div>
             <p class="text-sm text-gray-600 mt-3">
               <i class="fas fa-check-circle text-green-600 mr-2"></i>
-              <span id="rowCount">${csvData.length}</span>行のデータが読み込まれています
+              <span id="rowCount">0</span>行のデータが読み込まれています
             </p>
           </div>
         </div>
