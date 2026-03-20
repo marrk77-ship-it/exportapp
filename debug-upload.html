@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Debug Upload</title>
+</head>
+<body>
+    <h1>Debug CSV Upload</h1>
+    <textarea id="csvText" rows="10" cols="50">name,value
+Test1,100
+Test2,200
+Test3,300</textarea>
+    <br>
+    <button onclick="testUpload()">Test Upload</button>
+    <div id="result"></div>
+    
+    <script src="https://cdn.jsdelivr.net/npm/axios@1.6.0/dist/axios.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+    <script>
+        axios.defaults.withCredentials = true;
+        
+        async function testUpload() {
+            console.log('=== Starting upload test ===');
+            
+            // Step 1: Login
+            try {
+                const loginResp = await axios.post('/api/login', {
+                    login_id: 'client1',
+                    password: 'password123'
+                });
+                console.log('✅ Login success:', loginResp.data);
+            } catch (error) {
+                console.error('❌ Login failed:', error);
+                document.getElementById('result').innerHTML = '<p style="color:red;">Login failed</p>';
+                return;
+            }
+            
+            // Step 2: Parse CSV
+            const csvText = document.getElementById('csvText').value;
+            Papa.parse(csvText, {
+                header: true,
+                skipEmptyLines: true,
+                complete: async (results) => {
+                    console.log('✅ CSV parsed:', results.data);
+                    
+                    // Step 3: Upload
+                    try {
+                        const uploadResp = await axios.post('/api/csv/upload', {
+                            rows: results.data
+                        });
+                        console.log('✅ Upload success:', uploadResp.data);
+                        document.getElementById('result').innerHTML = 
+                            '<p style="color:green;">Success! Uploaded ' + uploadResp.data.count + ' rows</p>' +
+                            '<pre>' + JSON.stringify(uploadResp.data, null, 2) + '</pre>';
+                    } catch (error) {
+                        console.error('❌ Upload failed:', error);
+                        document.getElementById('result').innerHTML = 
+                            '<p style="color:red;">Upload failed</p>' +
+                            '<pre>' + JSON.stringify(error.response?.data || error.message, null, 2) + '</pre>';
+                    }
+                },
+                error: (error) => {
+                    console.error('❌ CSV parse failed:', error);
+                }
+            });
+        }
+    </script>
+</body>
+</html>

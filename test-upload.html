@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>CSV Upload Test</title>
+</head>
+<body>
+    <h1>CSV Upload Test</h1>
+    
+    <h2>Step 1: Login</h2>
+    <button onclick="login()">Login as client1</button>
+    <div id="loginResult"></div>
+    
+    <h2>Step 2: Upload CSV</h2>
+    <input type="file" id="csvFile" accept=".csv">
+    <button onclick="uploadCSV()">Upload CSV</button>
+    <div id="uploadResult"></div>
+    
+    <script src="https://cdn.jsdelivr.net/npm/axios@1.6.0/dist/axios.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+    <script>
+        axios.defaults.baseURL = 'http://localhost:3000';
+        axios.defaults.withCredentials = true;
+        
+        async function login() {
+            try {
+                const response = await axios.post('/api/login', {
+                    login_id: 'client1',
+                    password: 'password123'
+                });
+                document.getElementById('loginResult').innerHTML = 
+                    '<pre>' + JSON.stringify(response.data, null, 2) + '</pre>';
+                console.log('Login success:', response.data);
+            } catch (error) {
+                console.error('Login error:', error);
+                document.getElementById('loginResult').innerHTML = 
+                    '<pre style="color:red;">' + JSON.stringify(error.response?.data || error.message, null, 2) + '</pre>';
+            }
+        }
+        
+        async function uploadCSV() {
+            const fileInput = document.getElementById('csvFile');
+            if (!fileInput.files.length) {
+                alert('Please select a CSV file');
+                return;
+            }
+            
+            const file = fileInput.files[0];
+            const reader = new FileReader();
+            
+            reader.onload = async (e) => {
+                Papa.parse(e.target.result, {
+                    header: true,
+                    skipEmptyLines: true,
+                    complete: async (results) => {
+                        console.log('Parsed CSV:', results.data);
+                        
+                        try {
+                            const response = await axios.post('/api/csv/upload', {
+                                rows: results.data
+                            });
+                            document.getElementById('uploadResult').innerHTML = 
+                                '<pre>' + JSON.stringify(response.data, null, 2) + '</pre>';
+                            console.log('Upload success:', response.data);
+                        } catch (error) {
+                            console.error('Upload error:', error);
+                            document.getElementById('uploadResult').innerHTML = 
+                                '<pre style="color:red;">' + JSON.stringify(error.response?.data || error.message, null, 2) + '</pre>';
+                        }
+                    }
+                });
+            };
+            
+            reader.readAsText(file);
+        }
+    </script>
+</body>
+</html>

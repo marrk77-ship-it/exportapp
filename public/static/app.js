@@ -221,15 +221,6 @@ async function showMainApp() {
             </p>
           </div>
           <div class="flex gap-4">
-            ${currentUser.role === 'admin' ? `
-              <a 
-                href="/admin"
-                class="bg-purple-500 hover:bg-purple-600 text-white px-4 py-2 rounded-lg transition"
-                title="管理画面"
-              >
-                <i class="fas fa-shield-alt mr-2"></i>管理画面
-              </a>
-            ` : ''}
             <button 
               onclick="showSettingsModal()"
               class="text-gray-600 hover:text-gray-800 transition"
@@ -509,7 +500,11 @@ function isDataGarbled(data) {
 }
 
 async function processFile(file) {
+  console.log('=== processFile called ===');
+  console.log('File:', file.name, 'Size:', file.size);
+  
   if (!file.name.endsWith('.csv')) {
+    console.error('Not a CSV file');
     showToast('CSVファイルを選択してください', 'error');
     return;
   }
@@ -521,15 +516,23 @@ async function processFile(file) {
 }
 
 function parseFileWithEncoding(file, encoding) {
+  console.log('=== parseFileWithEncoding ===');
+  console.log('Encoding:', encoding);
+  
   const reader = new FileReader();
   
   reader.onload = async (e) => {
+    console.log('File loaded, text length:', e.target.result.length);
     const text = e.target.result;
     
     Papa.parse(text, {
       header: true,
       skipEmptyLines: true,
       complete: async (results) => {
+        console.log('=== Papa.parse complete ===');
+        console.log('Parsed rows:', results.data.length);
+        console.log('Errors:', results.errors.length);
+        
         if (results.errors.length > 0) {
           console.error('CSV解析エラー:', results.errors);
           showToast('CSVファイルの解析に失敗しました', 'error');
@@ -537,6 +540,7 @@ function parseFileWithEncoding(file, encoding) {
         }
 
         if (results.data.length === 0) {
+          console.error('No data found');
           showToast('データが含まれていません', 'error');
           return;
         }
@@ -549,14 +553,18 @@ function parseFileWithEncoding(file, encoding) {
         }
 
         // Upload to server
+        console.log('=== Uploading to server ===');
         const uploadResult = await uploadCSVData(results.data);
+        console.log('Upload result:', uploadResult);
         
         if (uploadResult.success) {
           csvData = results.data; // Store for both preview and export
+          console.log('csvData length:', csvData.length);
           displayPreview();
           enableExportButtons();
           showToast(`${uploadResult.count}行のデータを読み込みました (${encoding})`, 'success');
         } else {
+          console.error('Upload failed:', uploadResult.error);
           showToast(uploadResult.error, 'error');
         }
       },
@@ -575,6 +583,7 @@ function parseFileWithEncoding(file, encoding) {
   };
   
   reader.onerror = () => {
+    console.error('FileReader error');
     showToast('ファイルの読み込みに失敗しました', 'error');
   };
   
@@ -587,9 +596,16 @@ function parseFileWithEncoding(file, encoding) {
 }
 
 function displayPreview() {
+  console.log('=== displayPreview called ===');
+  console.log('csvData length:', csvData.length);
+  
   const previewSection = document.getElementById('previewSection');
   const previewTable = document.getElementById('previewTable');
   const rowCount = document.getElementById('rowCount');
+  
+  console.log('previewSection:', previewSection);
+  console.log('previewTable:', previewTable);
+  console.log('rowCount:', rowCount);
   
   previewSection.classList.remove('hidden');
   rowCount.textContent = csvData.length;
