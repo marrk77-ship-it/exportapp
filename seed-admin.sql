@@ -3,7 +3,7 @@ UPDATE users SET role = 'admin' WHERE login_id = 'client1';
 
 -- Insert admin user if not exists (password: admin2024)
 INSERT OR IGNORE INTO users (login_id, password_hash, name, role) 
-VALUES ('admin', '$2b$10$YzO5R8QxXJ6K7qV2N3sE4.Jw9kZxB4qP3hN6mT8wC2yV1xL5sK9R.', '管理者', 'admin');
+VALUES ('admin', '$2b$10$w/vFc5ToLyhK7ZDjPZQX6e9IAMzm.nMwsYuC8tAUHs./5GIDaRkGi', '管理者', 'admin');
 
 -- Add default settings for admin
 INSERT OR IGNORE INTO export_settings (user_id, export_type, button_name, file_prefix, columns, filter_column, filter_value, sort_column)
