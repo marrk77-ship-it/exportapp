@@ -231,6 +231,15 @@ async function showMainApp() {
             </p>
           </div>
           <div class="flex gap-4">
+            ${currentUser.role === 'admin' ? `
+              <a 
+                href="/admin"
+                class="bg-purple-500 hover:bg-purple-600 text-white px-4 py-2 rounded-lg transition"
+                title="管理画面"
+              >
+                <i class="fas fa-shield-alt mr-2"></i>管理画面
+              </a>
+            ` : ''}
             <button 
               onclick="showSettingsModal()"
               class="text-gray-600 hover:text-gray-800 transition"

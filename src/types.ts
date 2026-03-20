@@ -7,6 +7,7 @@ export type User = {
   login_id: string;
   password_hash: string;
   name: string | null;
+  role?: string;
   created_at: string;
   updated_at: string;
 }
@@ -38,5 +39,16 @@ export type Session = {
   user_id: number;
   login_id: string;
   name: string | null;
+  role?: string;
   expires_at: number;
+}
+
+export type AdminLog = {
+  id: number;
+  admin_user_id: number;
+  action: string;
+  target_user_id: number | null;
+  details: string | null;
+  ip_address: string | null;
+  created_at: string;
 }
