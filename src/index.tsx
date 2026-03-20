@@ -120,6 +120,7 @@ app.get('/api/session', async (c) => {
         id: session.user_id,
         login_id: session.login_id,
         name: session.name,
+        role: session.role || 'user',
       }
     })
   } catch (error) {
