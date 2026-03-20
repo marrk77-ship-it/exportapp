@@ -297,7 +297,7 @@ async function showMainApp() {
             <button 
               id="taxBtn"
               onclick="exportSpreadsheet('tax')"
-              disabled="${csvData.length === 0}"
+              ${csvData.length === 0 ? 'disabled' : ''}
               class="bg-blue-500 hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-bold py-8 px-6 rounded-lg text-2xl transition duration-200 shadow-lg hover:shadow-xl"
             >
               <i class="fas fa-calculator text-4xl mb-3 block"></i>
@@ -307,7 +307,7 @@ async function showMainApp() {
             <button 
               id="invoiceBtn"
               onclick="exportSpreadsheet('invoice')"
-              disabled="${csvData.length === 0}"
+              ${csvData.length === 0 ? 'disabled' : ''}
               class="bg-green-500 hover:bg-green-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-bold py-8 px-6 rounded-lg text-2xl transition duration-200 shadow-lg hover:shadow-xl"
             >
               <i class="fas fa-file-invoice text-4xl mb-3 block"></i>
@@ -317,7 +317,7 @@ async function showMainApp() {
             <button 
               id="ledgerBtn"
               onclick="exportSpreadsheet('ledger')"
-              disabled="${csvData.length === 0}"
+              ${csvData.length === 0 ? 'disabled' : ''}
               class="bg-purple-500 hover:bg-purple-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-bold py-8 px-6 rounded-lg text-2xl transition duration-200 shadow-lg hover:shadow-xl"
             >
               <i class="fas fa-book text-4xl mb-3 block"></i>
