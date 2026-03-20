@@ -545,13 +545,15 @@ function parseFileWithEncoding(file, encoding) {
           return;
         }
 
-        // Check if data is garbled and retry with Shift-JIS
+        // Check if data is garbled and retry with Shift-JIS (only once)
         if (encoding === 'UTF-8' && isDataGarbled(results.data)) {
           console.log('文字化けを検出しました。Shift-JISで再試行します...');
           parseFileWithEncoding(file, 'Shift-JIS');
           return;
         }
 
+        console.log('=== Encoding check passed, proceeding with', encoding, '===');
+        
         // Upload to server
         console.log('=== Uploading to server ===');
         const uploadResult = await uploadCSVData(results.data);
@@ -559,10 +561,14 @@ function parseFileWithEncoding(file, encoding) {
         
         if (uploadResult.success) {
           csvData = results.data; // Store for both preview and export
-          console.log('csvData length:', csvData.length);
+          console.log('csvData stored, length:', csvData.length);
+          console.log('Calling displayPreview()...');
           displayPreview();
+          console.log('Calling enableExportButtons()...');
           enableExportButtons();
+          console.log('Calling showToast()...');
           showToast(`${uploadResult.count}行のデータを読み込みました (${encoding})`, 'success');
+          console.log('=== Upload complete ===');
         } else {
           console.error('Upload failed:', uploadResult.error);
           showToast(uploadResult.error, 'error');
