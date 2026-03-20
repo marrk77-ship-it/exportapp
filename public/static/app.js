@@ -23,6 +23,8 @@ async function checkSession() {
     const response = await axios.get('/api/session');
     if (response.data.authenticated) {
       currentUser = response.data.user;
+      console.log('現在のユーザー:', currentUser);
+      console.log('ユーザーロール:', currentUser.role);
       showMainApp();
     } else {
       showLoginScreen();
@@ -46,6 +48,8 @@ async function login(loginId, password) {
     
     if (response.data.success) {
       currentUser = response.data.user;
+      console.log('ログイン成功 - ユーザー:', currentUser);
+      console.log('ユーザーロール:', currentUser.role);
       showMainApp();
       return { success: true };
     }
