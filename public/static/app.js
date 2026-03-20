@@ -77,11 +77,15 @@ async function logout() {
 // ==================== CSV Data Operations ====================
 
 async function uploadCSVData(rows) {
+  console.log('uploadCSVData called with', rows.length, 'rows');
   try {
+    console.log('Sending POST request to /api/csv/upload...');
     const response = await axios.post('/api/csv/upload', { rows });
+    console.log('Server response received:', response.data);
     return { success: true, count: response.data.count };
   } catch (error) {
     console.error('CSVアップロードエラー:', error);
+    console.error('Error details:', error.response?.data);
     return { 
       success: false, 
       error: error.response?.data?.error || 'データのアップロードに失敗しました' 
