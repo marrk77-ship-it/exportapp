@@ -1,6 +1,7 @@
 // Global state
 let currentUser = null;
-let csvData = [];
+let csvData = []; // Database data (for export)
+let uploadedCsvData = []; // Recently uploaded data (for preview)
 let settings = {
   tax: null,
   invoice: null,
@@ -68,6 +69,7 @@ async function logout() {
     await axios.post('/api/logout');
     currentUser = null;
     csvData = [];
+    uploadedCsvData = [];
     showLoginScreen();
   } catch (error) {
     console.error('ログアウトエラー:', error);
@@ -203,9 +205,8 @@ function showLoginScreen() {
 }
 
 async function showMainApp() {
-  // Fetch settings and data
+  // Fetch settings only (don't auto-load CSV data)
   await fetchSettings();
-  const dataResult = await fetchCSVData();
   
   const app = document.getElementById('app');
   app.innerHTML = `
@@ -272,14 +273,14 @@ async function showMainApp() {
             </button>
           </div>
           
-          <div id="previewSection" class="mt-6 ${csvData.length > 0 ? '' : 'hidden'}">
+          <div id="previewSection" class="mt-6 ${uploadedCsvData.length > 0 ? '' : 'hidden'}">
             <h3 class="text-lg font-bold text-gray-700 mb-3">
               <i class="fas fa-eye mr-2"></i>データプレビュー（最初の5件）
             </h3>
             <div id="previewTable" class="overflow-x-auto"></div>
             <p class="text-sm text-gray-600 mt-3">
               <i class="fas fa-check-circle text-green-600 mr-2"></i>
-              <span id="rowCount">${csvData.length}</span>行のデータが読み込まれています
+              <span id="rowCount">${uploadedCsvData.length}</span>行のデータが読み込まれています
             </p>
           </div>
         </div>
@@ -297,7 +298,6 @@ async function showMainApp() {
             <button 
               id="taxBtn"
               onclick="exportSpreadsheet('tax')"
-              ${csvData.length === 0 ? 'disabled' : ''}
               class="bg-blue-500 hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-bold py-8 px-6 rounded-lg text-2xl transition duration-200 shadow-lg hover:shadow-xl"
             >
               <i class="fas fa-calculator text-4xl mb-3 block"></i>
@@ -307,7 +307,6 @@ async function showMainApp() {
             <button 
               id="invoiceBtn"
               onclick="exportSpreadsheet('invoice')"
-              ${csvData.length === 0 ? 'disabled' : ''}
               class="bg-green-500 hover:bg-green-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-bold py-8 px-6 rounded-lg text-2xl transition duration-200 shadow-lg hover:shadow-xl"
             >
               <i class="fas fa-file-invoice text-4xl mb-3 block"></i>
@@ -317,7 +316,6 @@ async function showMainApp() {
             <button 
               id="ledgerBtn"
               onclick="exportSpreadsheet('ledger')"
-              ${csvData.length === 0 ? 'disabled' : ''}
               class="bg-purple-500 hover:bg-purple-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-bold py-8 px-6 rounded-lg text-2xl transition duration-200 shadow-lg hover:shadow-xl"
             >
               <i class="fas fa-book text-4xl mb-3 block"></i>
@@ -553,7 +551,8 @@ function parseFileWithEncoding(file, encoding) {
         const uploadResult = await uploadCSVData(results.data);
         
         if (uploadResult.success) {
-          csvData = results.data;
+          uploadedCsvData = results.data; // For preview
+          csvData = results.data; // For export
           displayPreview();
           enableExportButtons();
           showToast(`${uploadResult.count}行のデータを読み込みました (${encoding})`, 'success');
@@ -593,12 +592,12 @@ function displayPreview() {
   const rowCount = document.getElementById('rowCount');
   
   previewSection.classList.remove('hidden');
-  rowCount.textContent = csvData.length;
+  rowCount.textContent = uploadedCsvData.length;
   
-  if (csvData.length === 0) return;
+  if (uploadedCsvData.length === 0) return;
   
-  const previewData = csvData.slice(0, 5);
-  const headers = Object.keys(csvData[0]);
+  const previewData = uploadedCsvData.slice(0, 5);
+  const headers = Object.keys(uploadedCsvData[0]);
   
   let tableHtml = '<table class="min-w-full divide-y divide-gray-200 text-sm">';
   tableHtml += '<thead class="bg-gray-50"><tr>';
@@ -632,9 +631,12 @@ function enableExportButtons() {
 
 // ==================== Export Functionality ====================
 
-function exportSpreadsheet(type) {
-  if (csvData.length === 0) {
-    showToast('CSVデータを読み込んでください', 'error');
+async function exportSpreadsheet(type) {
+  // Fetch latest data from database
+  const dataResult = await fetchCSVData();
+  
+  if (!dataResult.success || csvData.length === 0) {
+    showToast('CSVデータがありません', 'error');
     return;
   }
 

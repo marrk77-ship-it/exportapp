@@ -141,10 +141,15 @@ async function deleteUserCSV(userId) {
   }
 }
 
-async function viewUserCSV(userId) {
+async function viewUserCSV(userId, limit = 50) {
   try {
-    const response = await axios.get(`/api/admin/users/${userId}/csv`);
-    return { success: true, data: response.data.data };
+    const response = await axios.get(`/api/admin/users/${userId}/csv?limit=${limit}`);
+    return { 
+      success: true, 
+      data: response.data.data,
+      total: response.data.total,
+      showing: response.data.showing
+    };
   } catch (error) {
     console.error('CSV表示エラー:', error);
     return { success: false, error: error.response?.data?.error || 'CSVデータの取得に失敗しました' };
@@ -507,7 +512,7 @@ function confirmDeleteCSV(userId, loginId) {
 }
 
 async function showCSVPreview(userId, loginId) {
-  const result = await viewUserCSV(userId);
+  const result = await viewUserCSV(userId, 100); // Show up to 100 rows
   
   if (!result.success) {
     alert(result.error);
@@ -517,12 +522,19 @@ async function showCSVPreview(userId, loginId) {
   const modal = document.createElement('div');
   modal.className = 'modal show';
   modal.innerHTML = `
-    <div class="bg-white rounded-lg shadow-xl max-w-4xl w-full mx-4 max-h-[90vh] overflow-auto">
+    <div class="bg-white rounded-lg shadow-xl max-w-6xl w-full mx-4 max-h-[90vh] overflow-auto">
       <div class="p-6 border-b border-gray-200 sticky top-0 bg-white">
         <h3 class="text-xl font-bold text-gray-800">
           <i class="fas fa-file-csv mr-2"></i>CSVデータプレビュー
         </h3>
-        <p class="text-sm text-gray-600 mt-2">ユーザー: ${loginId} （最初の10件）</p>
+        <p class="text-sm text-gray-600 mt-2">
+          ユーザー: ${loginId} 
+          <span class="ml-4">
+            <i class="fas fa-database mr-1"></i>
+            総件数: <strong>${result.total}</strong>件 / 
+            表示: <strong>${result.showing}</strong>件
+          </span>
+        </p>
       </div>
       <div class="p-6">
         ${result.data.length > 0 ? `
@@ -540,7 +552,7 @@ async function showCSVPreview(userId, loginId) {
                   <tr>
                     <td class="px-4 py-2 whitespace-nowrap">${row.row_number + 1}</td>
                     <td class="px-4 py-2">
-                      <pre class="text-xs bg-gray-50 p-2 rounded overflow-x-auto">${JSON.stringify(JSON.parse(row.row_data), null, 2)}</pre>
+                      <pre class="text-xs bg-gray-50 p-2 rounded overflow-x-auto max-w-2xl">${JSON.stringify(JSON.parse(row.row_data), null, 2)}</pre>
                     </td>
                     <td class="px-4 py-2 whitespace-nowrap text-gray-500">${new Date(row.created_at).toLocaleString('ja-JP')}</td>
                   </tr>

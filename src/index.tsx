@@ -352,13 +352,19 @@ app.get('/api/admin/stats', adminMiddleware, async (c) => {
 // Get user CSV data preview (admin only)
 app.get('/api/admin/users/:id/csv', adminMiddleware, async (c) => {
   const userId = parseInt(c.req.param('id'))
+  const limit = parseInt(c.req.query('limit') || '10')
+  const maxLimit = Math.min(limit, 1000) // Max 1000 rows
   
   try {
     const { results } = await c.env.DB.prepare(
-      'SELECT id, row_number, row_data, created_at FROM csv_data WHERE user_id = ? ORDER BY row_number LIMIT 10'
+      `SELECT id, row_number, row_data, created_at FROM csv_data WHERE user_id = ? ORDER BY row_number LIMIT ${maxLimit}`
     ).bind(userId).all<CSVData>()
 
-    return c.json({ data: results })
+    const count = await c.env.DB.prepare(
+      'SELECT COUNT(*) as total FROM csv_data WHERE user_id = ?'
+    ).bind(userId).first<{ total: number }>()
+
+    return c.json({ data: results, total: count?.total || 0, showing: results.length })
   } catch (error) {
     console.error('Admin CSV fetch error:', error)
     return c.json({ error: 'CSVデータの取得に失敗しました' }, 500)
