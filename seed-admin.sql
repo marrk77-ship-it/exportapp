@@ -1,6 +1,3 @@
--- Update first user (client1) to admin
-UPDATE users SET role = 'admin' WHERE login_id = 'client1';
-
 -- Insert admin user if not exists (password: admin2024)
 INSERT OR IGNORE INTO users (login_id, password_hash, name, role) 
 VALUES ('admin', '$2b$10$w/vFc5ToLyhK7ZDjPZQX6e9IAMzm.nMwsYuC8tAUHs./5GIDaRkGi', '管理者', 'admin');
