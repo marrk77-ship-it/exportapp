@@ -515,8 +515,79 @@ async function processFile(file) {
 
   showToast('ファイルを読み込み中...', 'info');
 
-  // First try with UTF-8
-  parseFileWithEncoding(file, 'UTF-8');
+  // Simplified: Always use UTF-8, no garbling detection
+  parseFileWithEncodingSimple(file);
+}
+
+function parseFileWithEncodingSimple(file) {
+  console.log('=== parseFileWithEncodingSimple ===');
+  
+  const reader = new FileReader();
+  
+  reader.onload = async (e) => {
+    console.log('File loaded, text length:', e.target.result.length);
+    const text = e.target.result;
+    
+    Papa.parse(text, {
+      header: true,
+      skipEmptyLines: true,
+      complete: async (results) => {
+        console.log('=== Papa.parse complete ===');
+        console.log('Parsed rows:', results.data.length);
+        console.log('Errors:', results.errors.length);
+        console.log('First row sample:', results.data[0]);
+        
+        if (results.errors.length > 0) {
+          console.error('CSV解析エラー:', results.errors);
+          showToast('CSVファイルの解析に失敗しました', 'error');
+          return;
+        }
+
+        if (results.data.length === 0) {
+          console.error('No data found');
+          showToast('データが含まれていません', 'error');
+          return;
+        }
+
+        // Upload to server immediately
+        console.log('=== Starting upload ===');
+        console.log('About to call uploadCSVData with', results.data.length, 'rows');
+        
+        const uploadResult = await uploadCSVData(results.data);
+        
+        console.log('=== Upload completed ===');
+        console.log('Upload result:', uploadResult);
+        
+        if (uploadResult.success) {
+          csvData = results.data;
+          console.log('csvData stored, length:', csvData.length);
+          
+          console.log('Calling displayPreview()...');
+          displayPreview();
+          
+          console.log('Calling enableExportButtons()...');
+          enableExportButtons();
+          
+          showToast(`${uploadResult.count}行のデータを読み込みました`, 'success');
+          console.log('=== All done ===');
+        } else {
+          console.error('Upload failed:', uploadResult.error);
+          showToast(uploadResult.error, 'error');
+        }
+      },
+      error: (error) => {
+        console.error('CSV読み込みエラー:', error);
+        showToast('ファイルの読み込みに失敗しました', 'error');
+      }
+    });
+  };
+  
+  reader.onerror = () => {
+    console.error('FileReader error');
+    showToast('ファイルの読み込みに失敗しました', 'error');
+  };
+  
+  reader.readAsText(file, 'UTF-8');
 }
 
 function parseFileWithEncoding(file, encoding) {
