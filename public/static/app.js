@@ -76,11 +76,11 @@ async function logout() {
 
 // ==================== CSV Data Operations ====================
 
-async function uploadCSVData(rows) {
-  console.log('uploadCSVData called with', rows.length, 'rows');
+async function uploadCSVData(rows, fileName) {
+  console.log('uploadCSVData called with', rows.length, 'rows, fileName:', fileName);
   try {
     console.log('Sending POST request to /api/csv/upload...');
-    const response = await axios.post('/api/csv/upload', { rows });
+    const response = await axios.post('/api/csv/upload', { rows, fileName });
     console.log('Server response received:', response.data);
     return { success: true, count: response.data.count };
   } catch (error) {
@@ -553,8 +553,9 @@ function parseFileWithEncodingSimple(file, encoding = 'UTF-8') {
         // Upload to server immediately
         console.log('=== Starting upload ===');
         console.log('About to call uploadCSVData with', results.data.length, 'rows');
+        console.log('File name:', file.name);
         
-        const uploadResult = await uploadCSVData(results.data);
+        const uploadResult = await uploadCSVData(results.data, file.name);
         
         console.log('=== Upload completed ===');
         console.log('Upload result:', uploadResult);

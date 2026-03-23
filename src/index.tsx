@@ -133,29 +133,30 @@ app.get('/api/session', async (c) => {
 // Upload CSV data
 app.post('/api/csv/upload', authMiddleware, async (c) => {
   const session = c.get('session') as Session
-  const { rows } = await c.req.json()
+  const { rows, fileName } = await c.req.json()
 
   if (!Array.isArray(rows) || rows.length === 0) {
     return c.json({ error: 'CSVデータが正しくありません' }, 400)
   }
 
   try {
-    console.log(`Starting CSV upload for user ${session.user_id}: ${rows.length} rows`)
+    console.log(`Starting CSV upload for user ${session.user_id}: ${rows.length} rows, file: ${fileName}`)
     const startTime = Date.now()
     
-    // Delete existing data for this user
-    await c.env.DB.prepare('DELETE FROM csv_data WHERE user_id = ?')
-      .bind(session.user_id)
-      .run()
+    // Create upload history record
+    const uploadResult = await c.env.DB.prepare(
+      'INSERT INTO csv_uploads (user_id, file_name, row_count) VALUES (?, ?, ?)'
+    ).bind(session.user_id, fileName || 'unnamed.csv', rows.length).run()
     
-    console.log(`Deleted existing data in ${Date.now() - startTime}ms`)
+    const uploadId = uploadResult.meta.last_row_id
+    console.log(`Created upload record: ${uploadId}`)
 
-    // Batch insert new data (much faster than individual inserts)
+    // Batch insert CSV data with upload_id
     const batchStartTime = Date.now()
     const statements = rows.map((row, i) => 
       c.env.DB.prepare(
-        'INSERT INTO csv_data (user_id, row_data, row_number) VALUES (?, ?, ?)'
-      ).bind(session.user_id, JSON.stringify(row), i)
+        'INSERT INTO csv_data (user_id, row_data, row_number, upload_id) VALUES (?, ?, ?, ?)'
+      ).bind(session.user_id, JSON.stringify(row), i, uploadId)
     )
     
     await c.env.DB.batch(statements)
@@ -163,21 +164,31 @@ app.post('/api/csv/upload', authMiddleware, async (c) => {
     console.log(`Batch insert completed in ${Date.now() - batchStartTime}ms`)
     console.log(`Total upload time: ${Date.now() - startTime}ms`)
 
-    return c.json({ success: true, count: rows.length })
+    return c.json({ success: true, count: rows.length, uploadId })
   } catch (error) {
     console.error('CSV upload error:', error)
     return c.json({ error: 'データの保存に失敗しました' }, 500)
   }
 })
 
-// Get CSV data
+// Get CSV data (latest upload only)
 app.get('/api/csv/data', authMiddleware, async (c) => {
   const session = c.get('session') as Session
 
   try {
+    // Get the latest upload_id for this user
+    const latestUpload = await c.env.DB.prepare(
+      'SELECT id FROM csv_uploads WHERE user_id = ? ORDER BY uploaded_at DESC LIMIT 1'
+    ).bind(session.user_id).first<{ id: number }>()
+
+    if (!latestUpload) {
+      return c.json({ rows: [] })
+    }
+
+    // Get CSV data for the latest upload
     const { results } = await c.env.DB.prepare(
-      'SELECT row_data, row_number FROM csv_data WHERE user_id = ? ORDER BY row_number'
-    ).bind(session.user_id).all<CSVData>()
+      'SELECT row_data, row_number FROM csv_data WHERE user_id = ? AND upload_id = ? ORDER BY row_number'
+    ).bind(session.user_id, latestUpload.id).all<CSVData>()
 
     const rows = results.map(r => JSON.parse(r.row_data))
     return c.json({ rows })
@@ -468,6 +479,50 @@ app.get('/api/admin/stats', adminMiddleware, async (c) => {
   } catch (error) {
     console.error('Admin stats fetch error:', error)
     return c.json({ error: '統計情報の取得に失敗しました' }, 500)
+  }
+})
+
+// Get user upload history (admin only)
+app.get('/api/admin/users/:id/uploads', adminMiddleware, async (c) => {
+  const userId = parseInt(c.req.param('id'))
+  
+  try {
+    const { results } = await c.env.DB.prepare(
+      `SELECT id, file_name, row_count, uploaded_at FROM csv_uploads WHERE user_id = ? ORDER BY uploaded_at DESC`
+    ).bind(userId).all()
+
+    return c.json({ uploads: results })
+  } catch (error) {
+    console.error('Admin upload history fetch error:', error)
+    return c.json({ error: 'アップロード履歴の取得に失敗しました' }, 500)
+  }
+})
+
+// Download specific upload (admin only)
+app.get('/api/admin/uploads/:uploadId/download', adminMiddleware, async (c) => {
+  const uploadId = parseInt(c.req.param('uploadId'))
+  
+  try {
+    // Get upload info
+    const upload = await c.env.DB.prepare(
+      'SELECT * FROM csv_uploads WHERE id = ?'
+    ).bind(uploadId).first()
+
+    if (!upload) {
+      return c.json({ error: 'アップロードが見つかりません' }, 404)
+    }
+
+    // Get CSV data for this upload
+    const { results } = await c.env.DB.prepare(
+      'SELECT row_data FROM csv_data WHERE upload_id = ? ORDER BY row_number'
+    ).bind(uploadId).all<CSVData>()
+
+    const rows = results.map(r => JSON.parse(r.row_data))
+    
+    return c.json({ upload, rows })
+  } catch (error) {
+    console.error('Admin upload download error:', error)
+    return c.json({ error: 'ダウンロードに失敗しました' }, 500)
   }
 })
 

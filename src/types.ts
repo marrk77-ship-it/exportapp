@@ -17,8 +17,17 @@ export type CSVData = {
   user_id: number;
   row_data: string;
   row_number: number;
+  upload_id?: number;
   created_at: string;
   updated_at: string;
+}
+
+export type CSVUpload = {
+  id: number;
+  user_id: number;
+  file_name: string;
+  row_count: number;
+  uploaded_at: string;
 }
 
 export type ExportSettings = {
