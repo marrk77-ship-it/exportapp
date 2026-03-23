@@ -515,12 +515,13 @@ async function processFile(file) {
 
   showToast('ファイルを読み込み中...', 'info');
 
-  // Simplified: Always use UTF-8, no garbling detection
-  parseFileWithEncodingSimple(file);
+  // Try Shift-JIS first (most common for Japanese CSV)
+  parseFileWithEncodingSimple(file, 'Shift-JIS');
 }
 
-function parseFileWithEncodingSimple(file) {
+function parseFileWithEncodingSimple(file, encoding = 'UTF-8') {
   console.log('=== parseFileWithEncodingSimple ===');
+  console.log('Encoding:', encoding);
   
   const reader = new FileReader();
   
@@ -568,7 +569,7 @@ function parseFileWithEncodingSimple(file) {
           console.log('Calling enableExportButtons()...');
           enableExportButtons();
           
-          showToast(`${uploadResult.count}行のデータを読み込みました`, 'success');
+          showToast(`${uploadResult.count}行のデータを読み込みました (${encoding})`, 'success');
           console.log('=== All done ===');
         } else {
           console.error('Upload failed:', uploadResult.error);
@@ -587,7 +588,12 @@ function parseFileWithEncodingSimple(file) {
     showToast('ファイルの読み込みに失敗しました', 'error');
   };
   
-  reader.readAsText(file, 'UTF-8');
+  // Read with specified encoding
+  if (encoding === 'Shift-JIS') {
+    reader.readAsText(file, 'Shift_JIS');
+  } else {
+    reader.readAsText(file, 'UTF-8');
+  }
 }
 
 function parseFileWithEncoding(file, encoding) {
