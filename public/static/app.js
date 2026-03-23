@@ -80,12 +80,17 @@ async function uploadCSVData(rows, fileName) {
   console.log('uploadCSVData called with', rows.length, 'rows, fileName:', fileName);
   try {
     console.log('Sending POST request to /api/csv/upload...');
-    const response = await axios.post('/api/csv/upload', { rows, fileName });
+    console.log('axios.defaults.withCredentials:', axios.defaults.withCredentials);
+    const response = await axios.post('/api/csv/upload', { rows, fileName }, {
+      withCredentials: true
+    });
     console.log('Server response received:', response.data);
     return { success: true, count: response.data.count };
   } catch (error) {
     console.error('CSVアップロードエラー:', error);
     console.error('Error details:', error.response?.data);
+    console.error('Error status:', error.response?.status);
+    console.error('Error headers:', error.response?.headers);
     return { 
       success: false, 
       error: error.response?.data?.error || 'データのアップロードに失敗しました' 

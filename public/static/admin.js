@@ -535,7 +535,12 @@ function confirmDeleteCSV(userId, loginId) {
 
 async function showUploadHistory(userId, loginId) {
   try {
-    const response = await axios.get(`/api/admin/users/${userId}/uploads`);
+    console.log('Fetching upload history for user:', userId);
+    console.log('axios.defaults.withCredentials:', axios.defaults.withCredentials);
+    const response = await axios.get(`/api/admin/users/${userId}/uploads`, {
+      withCredentials: true
+    });
+    console.log('Upload history response:', response.data);
     const uploads = response.data.uploads;
     
     const modal = document.createElement('div');
