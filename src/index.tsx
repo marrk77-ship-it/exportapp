@@ -825,7 +825,7 @@ app.get('/admin', (c) => {
     <div id="app">読み込み中...</div>
     
     <script src="https://cdn.jsdelivr.net/npm/axios@1.6.0/dist/axios.min.js"><\/script>
-    <script src="/static/admin.js"><\/script>
+    <script src="/static/admin.js?v=${Date.now()}"><\/script>
 </body>
 </html>`;
   return c.html(html)
