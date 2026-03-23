@@ -152,6 +152,26 @@ async function viewUserCSV(userId, limit = 50) {
   }
 }
 
+async function viewUserUploads(userId) {
+  try {
+    const response = await axios.get(`/api/admin/users/${userId}/uploads`);
+    return { success: true, uploads: response.data.uploads };
+  } catch (error) {
+    console.error('アップロード履歴取得エラー:', error);
+    return { success: false, error: error.response?.data?.error || 'アップロード履歴の取得に失敗しました' };
+  }
+}
+
+async function downloadUpload(uploadId) {
+  try {
+    const response = await axios.get(`/api/admin/uploads/${uploadId}/download`);
+    return { success: true, upload: response.data.upload, rows: response.data.rows };
+  } catch (error) {
+    console.error('ダウンロードエラー:', error);
+    return { success: false, error: error.response?.data?.error || 'ダウンロードに失敗しました' };
+  }
+}
+
 // ==================== UI Functions ====================
 
 function showLoginScreen() {
@@ -315,6 +335,9 @@ function showAdminDashboard() {
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${new Date(user.created_at).toLocaleDateString('ja-JP')}</td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
                       ${user.csv_count > 0 ? `
+                        <button onclick="showUploadHistory(${user.id}, '${user.login_id}')" class="text-indigo-600 hover:text-indigo-800" title="アップロード履歴">
+                          <i class="fas fa-history"></i>
+                        </button>
                         <button onclick="showCSVPreview(${user.id}, '${user.login_id}')" class="text-blue-600 hover:text-blue-800" title="CSV表示">
                           <i class="fas fa-eye"></i>
                         </button>
@@ -504,6 +527,86 @@ function confirmDeleteUser(userId, loginId) {
 function confirmDeleteCSV(userId, loginId) {
   if (confirm(`ユーザー「${loginId}」のCSVデータをすべて削除しますか？\n\nこの操作は取り消せません。`)) {
     deleteUserCSV(userId);
+  }
+}
+
+async function showUploadHistory(userId, loginId) {
+  try {
+    const response = await axios.get(`/api/admin/users/${userId}/uploads`);
+    const uploads = response.data.uploads;
+    
+    const modal = document.createElement('div');
+    modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
+    modal.innerHTML = `
+      <div class="bg-white rounded-lg shadow-xl max-w-4xl w-full mx-4 max-h-[90vh] overflow-hidden">
+        <div class="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
+          <h3 class="text-xl font-bold text-gray-800">
+            <i class="fas fa-history mr-2 text-indigo-600"></i>アップロード履歴 - ${loginId}
+          </h3>
+          <button onclick="closeModal()" class="text-gray-500 hover:text-gray-700">
+            <i class="fas fa-times text-xl"></i>
+          </button>
+        </div>
+        
+        <div class="p-6 overflow-y-auto" style="max-height: calc(90vh - 80px);">
+          ${uploads.length === 0 ? `
+            <p class="text-gray-500 text-center py-8">アップロード履歴がありません</p>
+          ` : `
+            <table class="w-full">
+              <thead class="bg-gray-50">
+                <tr>
+                  <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">ファイル名</th>
+                  <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">件数</th>
+                  <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">アップロード日時</th>
+                  <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">操作</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-gray-200">
+                ${uploads.map(upload => `
+                  <tr class="hover:bg-gray-50">
+                    <td class="px-4 py-3 text-sm text-gray-900">
+                      <i class="fas fa-file-csv mr-2 text-green-600"></i>${upload.file_name}
+                    </td>
+                    <td class="px-4 py-3 text-sm text-gray-900">${upload.row_count}行</td>
+                    <td class="px-4 py-3 text-sm text-gray-500">${new Date(upload.uploaded_at).toLocaleString('ja-JP')}</td>
+                    <td class="px-4 py-3 text-sm font-medium space-x-2">
+                      <button onclick="downloadUpload(${upload.id}, '${upload.file_name}')" class="text-blue-600 hover:text-blue-800" title="ダウンロード">
+                        <i class="fas fa-download"></i>
+                      </button>
+                    </td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          `}
+        </div>
+      </div>
+    `;
+    
+    document.getElementById('modalContainer').appendChild(modal);
+  } catch (error) {
+    console.error('アップロード履歴取得エラー:', error);
+    alert('アップロード履歴の取得に失敗しました');
+  }
+}
+
+async function downloadUpload(uploadId, fileName) {
+  try {
+    const response = await axios.get(`/api/admin/uploads/${uploadId}/download`, {
+      responseType: 'blob'
+    });
+    
+    const url = window.URL.createObjectURL(new Blob([response.data]));
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', fileName);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.URL.revokeObjectURL(url);
+  } catch (error) {
+    console.error('ダウンロードエラー:', error);
+    alert('ファイルのダウンロードに失敗しました');
   }
 }
 
