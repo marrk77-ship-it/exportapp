@@ -140,19 +140,28 @@ app.post('/api/csv/upload', authMiddleware, async (c) => {
   }
 
   try {
+    console.log(`Starting CSV upload for user ${session.user_id}: ${rows.length} rows`)
+    const startTime = Date.now()
+    
     // Delete existing data for this user
     await c.env.DB.prepare('DELETE FROM csv_data WHERE user_id = ?')
       .bind(session.user_id)
       .run()
+    
+    console.log(`Deleted existing data in ${Date.now() - startTime}ms`)
 
-    // Insert new data
-    const stmt = c.env.DB.prepare(
-      'INSERT INTO csv_data (user_id, row_data, row_number) VALUES (?, ?, ?)'
+    // Batch insert new data (much faster than individual inserts)
+    const batchStartTime = Date.now()
+    const statements = rows.map((row, i) => 
+      c.env.DB.prepare(
+        'INSERT INTO csv_data (user_id, row_data, row_number) VALUES (?, ?, ?)'
+      ).bind(session.user_id, JSON.stringify(row), i)
     )
-
-    for (let i = 0; i < rows.length; i++) {
-      await stmt.bind(session.user_id, JSON.stringify(rows[i]), i).run()
-    }
+    
+    await c.env.DB.batch(statements)
+    
+    console.log(`Batch insert completed in ${Date.now() - batchStartTime}ms`)
+    console.log(`Total upload time: ${Date.now() - startTime}ms`)
 
     return c.json({ success: true, count: rows.length })
   } catch (error) {
