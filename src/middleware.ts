@@ -29,7 +29,8 @@ export async function authMiddleware(c: Context<{ Bindings: Bindings }>, next: N
 }
 
 export async function adminMiddleware(c: Context<{ Bindings: Bindings }>, next: Next) {
-  const sessionToken = getCookie(c, 'session')
+  // Use admin_session cookie instead of session
+  const sessionToken = getCookie(c, 'admin_session')
   
   if (!sessionToken) {
     return c.json({ error: '認証が必要です' }, 401)

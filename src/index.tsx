@@ -315,6 +315,119 @@ app.put('/api/settings/:type', authMiddleware, async (c) => {
   }
 })
 
+// ==================== Admin Authentication API ====================
+
+// Admin login (separate from regular login)
+app.post('/api/admin/login', async (c) => {
+  let { login_id, password } = await c.req.json()
+  
+  // Trim whitespace
+  login_id = login_id?.trim()
+  password = password?.trim()
+  
+  console.log('管理画面ログインリクエスト受信:', { 
+    login_id, 
+    password: password ? '***' : undefined
+  })
+
+  if (!login_id || !password) {
+    return c.json({ error: 'ログインIDとパスワードを入力してください' }, 400)
+  }
+
+  // Get user from database
+  const user = await c.env.DB.prepare(
+    'SELECT * FROM users WHERE login_id = ?'
+  ).bind(login_id).first<User>()
+
+  if (!user) {
+    return c.json({ error: 'ログインIDまたはパスワードが正しくありません' }, 401)
+  }
+
+  // Verify password
+  const isValid = await bcrypt.compare(password, user.password_hash)
+  
+  if (!isValid) {
+    return c.json({ error: 'ログインIDまたはパスワードが正しくありません' }, 401)
+  }
+
+  // Check if user is admin
+  if (user.role !== 'admin') {
+    return c.json({ error: '管理者権限が必要です' }, 403)
+  }
+
+  // Create admin session
+  const session: Session = {
+    user_id: user.id,
+    login_id: user.login_id,
+    name: user.name,
+    role: user.role || 'user',
+    expires_at: Date.now() + (7 * 24 * 60 * 60 * 1000), // 7 days
+  }
+
+  // Set admin cookie with different name
+  const sessionToken = base64Encode(JSON.stringify(session))
+  const isProduction = c.req.url.includes('.pages.dev') || c.req.url.includes('cloudflare') || c.req.url.includes('exportapp-tw.tech')
+  setCookie(c, 'admin_session', sessionToken, {
+    maxAge: 7 * 24 * 60 * 60, // 7 days
+    httpOnly: true,
+    secure: isProduction,
+    sameSite: 'Strict',
+    path: '/',
+  })
+
+  console.log('管理画面ログイン成功:', user.login_id)
+
+  return c.json({
+    success: true,
+    user: {
+      id: user.id,
+      login_id: user.login_id,
+      name: user.name,
+      role: user.role || 'user',
+    }
+  })
+})
+
+// Admin logout
+app.post('/api/admin/logout', (c) => {
+  deleteCookie(c, 'admin_session')
+  return c.json({ success: true })
+})
+
+// Check admin session
+app.get('/api/admin/session', async (c) => {
+  const sessionToken = getCookie(c, 'admin_session')
+  
+  if (!sessionToken) {
+    return c.json({ authenticated: false }, 401)
+  }
+
+  try {
+    const session: Session = JSON.parse(base64Decode(sessionToken))
+    
+    if (session.expires_at < Date.now()) {
+      return c.json({ authenticated: false }, 401)
+    }
+
+    // Check if user is admin
+    if (session.role !== 'admin') {
+      return c.json({ authenticated: false }, 403)
+    }
+
+    return c.json({
+      authenticated: true,
+      user: {
+        id: session.user_id,
+        login_id: session.login_id,
+        name: session.name,
+        role: session.role,
+      }
+    })
+  } catch (error) {
+    return c.json({ authenticated: false }, 401)
+  }
+})
+
 // ==================== Admin API ====================
 
 // Get all users (admin only)

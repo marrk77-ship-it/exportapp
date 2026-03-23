@@ -8,15 +8,9 @@ let logs = [];
 
 async function checkSession() {
   try {
-    const response = await axios.get('/api/session');
+    const response = await axios.get('/api/admin/session');
     if (response.data.authenticated) {
       currentUser = response.data.user;
-      
-      // Check if user is admin
-      if (currentUser.role !== 'admin') {
-        window.location.href = '/';
-        return;
-      }
       
       await loadAdminData();
       showAdminDashboard();
@@ -31,16 +25,9 @@ async function checkSession() {
 
 async function login(loginId, password) {
   try {
-    const response = await axios.post('/api/login', { login_id: loginId, password });
+    const response = await axios.post('/api/admin/login', { login_id: loginId, password });
     if (response.data.success) {
       currentUser = response.data.user;
-      
-      // Check if user is admin
-      if (currentUser.role !== 'admin') {
-        alert('管理者権限が必要です');
-        await logout();
-        return { success: false, error: '管理者権限が必要です' };
-      }
       
       await loadAdminData();
       showAdminDashboard();
@@ -54,7 +41,7 @@ async function login(loginId, password) {
 
 async function logout() {
   try {
-    await axios.post('/api/logout');
+    await axios.post('/api/admin/logout');
     currentUser = null;
     users = [];
     stats = null;
