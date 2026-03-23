@@ -25,16 +25,25 @@ async function checkSession() {
 
 async function login(loginId, password) {
   try {
+    console.log('管理画面ログイン試行:', loginId);
     const response = await axios.post('/api/admin/login', { login_id: loginId, password });
+    console.log('ログインレスポンス:', response.data);
+    
     if (response.data.success) {
       currentUser = response.data.user;
+      console.log('ログイン成功、データ読み込み中...');
       
       await loadAdminData();
+      console.log('データ読み込み完了、ダッシュボード表示');
       showAdminDashboard();
       return { success: true };
+    } else {
+      console.error('ログイン失敗: success=false');
+      return { success: false, error: 'ログインに失敗しました' };
     }
   } catch (error) {
     console.error('ログインエラー:', error);
+    console.error('エラー詳細:', error.response?.data);
     return { success: false, error: error.response?.data?.error || 'ログインに失敗しました' };
   }
 }
