@@ -4,6 +4,9 @@ let users = [];
 let stats = null;
 let logs = [];
 
+// Configure axios defaults
+axios.defaults.withCredentials = true;
+
 // ==================== API Functions ====================
 
 async function checkSession() {
