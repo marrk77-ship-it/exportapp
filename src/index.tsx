@@ -445,7 +445,9 @@ app.get('/api/admin/session', async (c) => {
 app.get('/api/admin/users', adminMiddleware, async (c) => {
   try {
     const { results: users } = await c.env.DB.prepare(`
-      SELECT u.id, u.login_id, u.name, u.role, u.created_at, u.updated_at,
+      SELECT u.id, u.login_id, u.name, u.role, 
+             datetime(u.created_at, '+9 hours') as created_at, 
+             datetime(u.updated_at, '+9 hours') as updated_at,
              COUNT(csv.id) as csv_count
       FROM users u
       LEFT JOIN csv_data csv ON u.id = csv.user_id
@@ -488,7 +490,9 @@ app.get('/api/admin/users/:id/uploads', adminMiddleware, async (c) => {
   
   try {
     const { results } = await c.env.DB.prepare(
-      `SELECT id, file_name, row_count, uploaded_at FROM csv_uploads WHERE user_id = ? ORDER BY uploaded_at DESC`
+      `SELECT id, file_name, row_count, 
+       datetime(uploaded_at, '+9 hours') as uploaded_at 
+       FROM csv_uploads WHERE user_id = ? ORDER BY uploaded_at DESC`
     ).bind(userId).all()
 
     return c.json({ uploads: results })
@@ -534,7 +538,8 @@ app.get('/api/admin/users/:id/csv', adminMiddleware, async (c) => {
   
   try {
     const { results } = await c.env.DB.prepare(
-      `SELECT id, row_number, row_data, created_at FROM csv_data WHERE user_id = ? ORDER BY row_number LIMIT ${maxLimit}`
+      `SELECT id, row_number, row_data, datetime(created_at, '+9 hours') as created_at 
+       FROM csv_data WHERE user_id = ? ORDER BY row_number LIMIT ${maxLimit}`
     ).bind(userId).all<CSVData>()
 
     const count = await c.env.DB.prepare(
@@ -735,7 +740,9 @@ app.post('/api/admin/users/:id/reset-password', adminMiddleware, async (c) => {
 app.get('/api/admin/logs', adminMiddleware, async (c) => {
   try {
     const { results } = await c.env.DB.prepare(`
-      SELECT l.*, u.login_id as admin_login_id, u.name as admin_name
+      SELECT l.id, l.admin_user_id, l.action, l.target_user_id, l.details, l.ip_address,
+             datetime(l.created_at, '+9 hours') as created_at,
+             u.login_id as admin_login_id, u.name as admin_name
       FROM admin_logs l
       JOIN users u ON l.admin_user_id = u.id
       ORDER BY l.created_at DESC
