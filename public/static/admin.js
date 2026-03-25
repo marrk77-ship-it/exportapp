@@ -7,6 +7,37 @@ let logs = [];
 // Configure axios defaults
 axios.defaults.withCredentials = true;
 
+// ==================== Utility Functions ====================
+
+// Convert UTC date to Japan time (JST)
+function toJapanTime(dateString) {
+  const date = new Date(dateString);
+  // Add 9 hours (JST is UTC+9)
+  const jstDate = new Date(date.getTime() + (9 * 60 * 60 * 1000));
+  
+  const year = jstDate.getUTCFullYear();
+  const month = String(jstDate.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(jstDate.getUTCDate()).padStart(2, '0');
+  const hours = String(jstDate.getUTCHours()).padStart(2, '0');
+  const minutes = String(jstDate.getUTCMinutes()).padStart(2, '0');
+  const seconds = String(jstDate.getUTCSeconds()).padStart(2, '0');
+  
+  return `${year}/${month}/${day} ${hours}:${minutes}:${seconds}`;
+}
+
+// Convert UTC date to Japan date only
+function toJapanDate(dateString) {
+  const date = new Date(dateString);
+  // Add 9 hours (JST is UTC+9)
+  const jstDate = new Date(date.getTime() + (9 * 60 * 60 * 1000));
+  
+  const year = jstDate.getUTCFullYear();
+  const month = String(jstDate.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(jstDate.getUTCDate()).padStart(2, '0');
+  
+  return `${year}/${month}/${day}`;
+}
+
 // ==================== API Functions ====================
 
 async function checkSession() {
@@ -335,7 +366,7 @@ function showAdminDashboard() {
                       </span>
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${user.csv_count || 0}</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${new Date(user.created_at).toLocaleDateString('ja-JP', { timeZone: 'Asia/Tokyo' })}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${toJapanDate(user.created_at)}</td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
                       ${user.csv_count > 0 ? `
                         <button onclick="showUploadHistory(${user.id}, '${user.login_id}')" class="text-indigo-600 hover:text-indigo-800" title="アップロード履歴">
@@ -385,7 +416,7 @@ function showAdminDashboard() {
               <tbody class="bg-white divide-y divide-gray-200">
                 ${logs.slice(0, 20).map(log => `
                   <tr>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${new Date(log.created_at).toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' })}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${toJapanTime(log.created_at)}</td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${log.admin_name} (${log.admin_login_id})</td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${formatAction(log.action)}</td>
                     <td class="px-6 py-4 text-sm text-gray-500">${log.details || '-'}</td>
@@ -576,7 +607,7 @@ async function showUploadHistory(userId, loginId) {
                       <i class="fas fa-file-csv mr-2 text-green-600"></i>${upload.file_name}
                     </td>
                     <td class="px-4 py-3 text-sm text-gray-900">${upload.row_count}行</td>
-                    <td class="px-4 py-3 text-sm text-gray-500">${new Date(upload.uploaded_at).toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' })}</td>
+                    <td class="px-4 py-3 text-sm text-gray-500">${toJapanTime(upload.uploaded_at)}</td>
                     <td class="px-4 py-3 text-sm font-medium space-x-2">
                       <button onclick="downloadUpload(${upload.id}, '${upload.file_name}')" class="text-blue-600 hover:text-blue-800" title="ダウンロード">
                         <i class="fas fa-download"></i>
@@ -661,7 +692,7 @@ async function showCSVPreview(userId, loginId) {
                     <td class="px-4 py-2">
                       <pre class="text-xs bg-gray-50 p-2 rounded overflow-x-auto max-w-2xl">${JSON.stringify(JSON.parse(row.row_data), null, 2)}</pre>
                     </td>
-                    <td class="px-4 py-2 whitespace-nowrap text-gray-500">${new Date(row.created_at).toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' })}</td>
+                    <td class="px-4 py-2 whitespace-nowrap text-gray-500">${toJapanTime(row.created_at)}</td>
                   </tr>
                 `).join('')}
               </tbody>
