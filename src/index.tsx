@@ -666,14 +666,20 @@ app.delete('/api/admin/users/:id/csv', adminMiddleware, async (c) => {
       'SELECT COUNT(*) as count FROM csv_data WHERE user_id = ?'
     ).bind(userId).first<{ count: number }>()
 
-    // Delete CSV data
+    // Get upload count before deletion
+    const uploadCount = await c.env.DB.prepare(
+      'SELECT COUNT(*) as count FROM csv_uploads WHERE user_id = ?'
+    ).bind(userId).first<{ count: number }>()
+
+    // Delete CSV data and upload history
     await c.env.DB.prepare('DELETE FROM csv_data WHERE user_id = ?').bind(userId).run()
+    await c.env.DB.prepare('DELETE FROM csv_uploads WHERE user_id = ?').bind(userId).run()
 
     // Log action
     const ip = c.req.header('cf-connecting-ip') || c.req.header('x-forwarded-for') || 'unknown'
     await c.env.DB.prepare(
       'INSERT INTO admin_logs (admin_user_id, action, target_user_id, details, ip_address) VALUES (?, ?, ?, ?, ?)'
-    ).bind(session.user_id, 'delete_csv', userId, `CSVデータ削除: ${count?.count || 0}件`, ip).run()
+    ).bind(session.user_id, 'delete_csv', userId, `CSVデータ削除: ${count?.count || 0}件、アップロード履歴: ${uploadCount?.count || 0}件`, ip).run()
 
     return c.json({ success: true })
   } catch (error) {

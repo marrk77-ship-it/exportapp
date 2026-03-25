@@ -335,7 +335,7 @@ function showAdminDashboard() {
                       </span>
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${user.csv_count || 0}</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${new Date(user.created_at).toLocaleDateString('ja-JP')}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${new Date(user.created_at).toLocaleDateString('ja-JP', { timeZone: 'Asia/Tokyo' })}</td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
                       ${user.csv_count > 0 ? `
                         <button onclick="showUploadHistory(${user.id}, '${user.login_id}')" class="text-indigo-600 hover:text-indigo-800" title="アップロード履歴">
@@ -385,7 +385,7 @@ function showAdminDashboard() {
               <tbody class="bg-white divide-y divide-gray-200">
                 ${logs.slice(0, 20).map(log => `
                   <tr>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${new Date(log.created_at).toLocaleString('ja-JP')}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${new Date(log.created_at).toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' })}</td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${log.admin_name} (${log.admin_login_id})</td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${formatAction(log.action)}</td>
                     <td class="px-6 py-4 text-sm text-gray-500">${log.details || '-'}</td>
@@ -576,7 +576,7 @@ async function showUploadHistory(userId, loginId) {
                       <i class="fas fa-file-csv mr-2 text-green-600"></i>${upload.file_name}
                     </td>
                     <td class="px-4 py-3 text-sm text-gray-900">${upload.row_count}行</td>
-                    <td class="px-4 py-3 text-sm text-gray-500">${new Date(upload.uploaded_at).toLocaleString('ja-JP')}</td>
+                    <td class="px-4 py-3 text-sm text-gray-500">${new Date(upload.uploaded_at).toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' })}</td>
                     <td class="px-4 py-3 text-sm font-medium space-x-2">
                       <button onclick="downloadUpload(${upload.id}, '${upload.file_name}')" class="text-blue-600 hover:text-blue-800" title="ダウンロード">
                         <i class="fas fa-download"></i>
@@ -661,7 +661,7 @@ async function showCSVPreview(userId, loginId) {
                     <td class="px-4 py-2">
                       <pre class="text-xs bg-gray-50 p-2 rounded overflow-x-auto max-w-2xl">${JSON.stringify(JSON.parse(row.row_data), null, 2)}</pre>
                     </td>
-                    <td class="px-4 py-2 whitespace-nowrap text-gray-500">${new Date(row.created_at).toLocaleString('ja-JP')}</td>
+                    <td class="px-4 py-2 whitespace-nowrap text-gray-500">${new Date(row.created_at).toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' })}</td>
                   </tr>
                 `).join('')}
               </tbody>
