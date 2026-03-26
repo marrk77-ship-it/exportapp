@@ -258,7 +258,8 @@ async function showMainApp() {
             <h2 class="text-2xl font-bold text-gray-800">ファイルを選ぶ</h2>
           </div>
           
-          <div class="flex flex-col items-center justify-center border-4 border-dashed border-gray-300 rounded-lg p-12 hover:border-blue-400 transition cursor-pointer" id="dropZone">
+          <!-- Desktop: Drag & Drop Zone -->
+          <div class="hidden md:flex flex-col items-center justify-center border-4 border-dashed border-gray-300 rounded-lg p-12 hover:border-blue-400 transition cursor-pointer" id="dropZone">
             <i class="fas fa-cloud-upload-alt text-6xl text-gray-400 mb-4"></i>
             <p class="text-xl text-gray-600 mb-4">CSVファイルをドラッグ＆ドロップ</p>
             <p class="text-gray-500 mb-6">または</p>
@@ -269,6 +270,17 @@ async function showMainApp() {
             >
               <i class="fas fa-folder-open mr-3"></i>ファイルを選ぶ
             </button>
+          </div>
+          
+          <!-- Mobile: Simple Button Only -->
+          <div class="flex md:hidden flex-col items-center justify-center p-8">
+            <button 
+              onclick="document.getElementById('fileInput').click()"
+              class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-6 px-16 rounded-lg text-2xl transition duration-200 shadow-lg"
+            >
+              <i class="fas fa-folder-open mr-3"></i>ファイルを選ぶ
+            </button>
+            <p class="text-sm text-gray-500 mt-4 text-center">CSVファイルを選択してください</p>
           </div>
           
           <div id="previewSection" class="mt-6 hidden">
