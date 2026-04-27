@@ -17,6 +17,7 @@ app.use('/api/*', cors({
 
 // Serve static files
 app.use('/static/*', serveStatic())
+app.use('/os/static/*', serveStatic({ root: './public' }))
 
 // ==================== Authentication API ====================
 
@@ -842,6 +843,207 @@ app.get('/admin', (c) => {
 </body>
 </html>`;
   return c.html(html)
+})
+
+// ==================== OS社専用システム ====================
+
+// OS社専用ページ
+app.get('/os', (c) => {
+  const html = `<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OS社専用システム - 産業廃棄物管理票交付等状況報告書</title>
+    <script src="https://cdn.tailwindcss.com"><\/script>
+    <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
+</head>
+<body class="bg-gray-50">
+    <div id="app">読み込み中...</div>
+    
+    <script src="https://cdn.jsdelivr.net/npm/axios@1.6.0/dist/axios.min.js"><\/script>
+    <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"><\/script>
+    <script src="/os/static/app.js?v=${Date.now()}"><\/script>
+</body>
+</html>`;
+  return c.html(html)
+})
+
+// OS社専用 - セッション確認
+app.get('/api/os/session', async (c) => {
+  const sessionCookie = getCookie(c, 'os_session')
+  
+  if (!sessionCookie) {
+    return c.json({ authenticated: false })
+  }
+
+  try {
+    const sessionData = base64Decode(sessionCookie)
+    const session = JSON.parse(sessionData)
+    
+    // ユーザー情報を取得
+    const user = await c.env.DB.prepare(
+      'SELECT id, login_id, name FROM os_users WHERE id = ?'
+    ).bind(session.userId).first()
+
+    if (user) {
+      return c.json({
+        authenticated: true,
+        user: {
+          id: user.id,
+          login_id: user.login_id,
+          name: user.name
+        }
+      })
+    }
+    
+    return c.json({ authenticated: false })
+  } catch (error) {
+    console.error('OS session error:', error)
+    return c.json({ authenticated: false })
+  }
+})
+
+// OS社専用 - ログイン
+app.post('/api/os/login', async (c) => {
+  let { login_id, password } = await c.req.json()
+  
+  login_id = login_id?.trim()
+  password = password?.trim()
+
+  if (!login_id || !password) {
+    return c.json({ error: 'ログインIDとパスワードを入力してください' }, 400)
+  }
+
+  const user = await c.env.DB.prepare(
+    'SELECT * FROM os_users WHERE login_id = ?'
+  ).bind(login_id).first()
+
+  if (!user) {
+    return c.json({ error: 'ログインIDまたはパスワードが正しくありません' }, 401)
+  }
+
+  const isValid = await bcrypt.compare(password, user.password_hash)
+  
+  if (!isValid) {
+    return c.json({ error: 'ログインIDまたはパスワードが正しくありません' }, 401)
+  }
+
+  const session = {
+    userId: user.id,
+    loginId: user.login_id,
+    createdAt: new Date().toISOString()
+  }
+
+  const sessionCookie = base64Encode(JSON.stringify(session))
+  
+  setCookie(c, 'os_session', sessionCookie, {
+    httpOnly: true,
+    secure: true,
+    sameSite: 'Strict',
+    maxAge: 86400
+  })
+
+  return c.json({
+    user: {
+      id: user.id,
+      login_id: user.login_id,
+      name: user.name
+    }
+  })
+})
+
+// OS社専用 - ログアウト
+app.post('/api/os/logout', (c) => {
+  deleteCookie(c, 'os_session')
+  return c.json({ success: true })
+})
+
+// OS社専用 - CSVアップロード
+app.post('/api/os/csv/upload', async (c) => {
+  const sessionCookie = getCookie(c, 'os_session')
+  if (!sessionCookie) {
+    return c.json({ error: '認証が必要です' }, 401)
+  }
+
+  const sessionData = base64Decode(sessionCookie)
+  const session = JSON.parse(sessionData)
+  const userId = session.userId
+
+  const { rows, fileName } = await c.req.json()
+  
+  if (!rows || !Array.isArray(rows) || rows.length === 0) {
+    return c.json({ error: 'データが空です' }, 400)
+  }
+
+  console.log(`OS CSV upload: user_id=${userId}, rows=${rows.length}, file=${fileName}`)
+
+  try {
+    // 既存データを削除
+    await c.env.DB.prepare('DELETE FROM os_csv_data WHERE user_id = ?').bind(userId).run()
+    await c.env.DB.prepare('DELETE FROM os_csv_uploads WHERE user_id = ?').bind(userId).run()
+
+    // アップロード履歴を作成
+    const uploadResult = await c.env.DB.prepare(
+      'INSERT INTO os_csv_uploads (user_id, file_name, row_count) VALUES (?, ?, ?)'
+    ).bind(userId, fileName, rows.length).run()
+
+    const uploadId = uploadResult.meta.last_row_id
+
+    // データを保存（バッチインサート）
+    const insertStart = Date.now()
+    
+    for (let i = 0; i < rows.length; i++) {
+      await c.env.DB.prepare(
+        'INSERT INTO os_csv_data (user_id, upload_id, row_data, row_number) VALUES (?, ?, ?, ?)'
+      ).bind(userId, uploadId, JSON.stringify(rows[i]), i + 1).run()
+    }
+
+    const insertTime = Date.now() - insertStart
+    console.log(`OS CSV upload completed: ${rows.length} rows in ${insertTime}ms`)
+
+    return c.json({
+      success: true,
+      count: rows.length,
+      uploadId: uploadId
+    })
+  } catch (error) {
+    console.error('OS CSV upload error:', error)
+    return c.json({ error: 'データの保存に失敗しました' }, 500)
+  }
+})
+
+// OS社専用 - 熊本市報告書出力（将来実装）
+app.post('/api/os/export/kumamoto', async (c) => {
+  const sessionCookie = getCookie(c, 'os_session')
+  if (!sessionCookie) {
+    return c.json({ error: '認証が必要です' }, 401)
+  }
+
+  const sessionData = base64Decode(sessionCookie)
+  const session = JSON.parse(sessionData)
+  const userId = session.userId
+
+  try {
+    // CSVデータを取得
+    const { results: csvRows } = await c.env.DB.prepare(
+      'SELECT row_data FROM os_csv_data WHERE user_id = ? ORDER BY row_number'
+    ).bind(userId).all()
+
+    if (!csvRows || csvRows.length === 0) {
+      return c.json({ error: 'CSVデータが見つかりません' }, 404)
+    }
+
+    const data = csvRows.map(row => JSON.parse(row.row_data))
+    
+    // TODO: ExcelJS を使ってテンプレートにデータを埋め込む
+    // 現在は仮実装として、簡易的なエクセル生成を行う
+    
+    return c.json({ error: 'この機能は実装中です' }, 501)
+  } catch (error) {
+    console.error('OS export error:', error)
+    return c.json({ error: '出力に失敗しました' }, 500)
+  }
 })
 
 export default app
