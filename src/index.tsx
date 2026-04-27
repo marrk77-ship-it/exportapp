@@ -16,8 +16,8 @@ app.use('/api/*', cors({
 }))
 
 // Serve static files
-app.use('/static/*', serveStatic())
-app.use('/os/static/*', serveStatic({ root: './public' }))
+app.use('/static/*', serveStatic({ root: './' }))
+app.use('/os/static/*', serveStatic({ root: './' }))
 
 // ==================== Authentication API ====================
 
@@ -849,24 +849,197 @@ app.get('/admin', (c) => {
 
 // OS社専用ページ
 app.get('/os', (c) => {
-  const html = `<!DOCTYPE html>
+  return c.html(`<!DOCTYPE html>
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>OS社専用システム - 産業廃棄物管理票交付等状況報告書</title>
-    <script src="https://cdn.tailwindcss.com"><\/script>
+    <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
 </head>
 <body class="bg-gray-50">
     <div id="app">読み込み中...</div>
     
-    <script src="https://cdn.jsdelivr.net/npm/axios@1.6.0/dist/axios.min.js"><\/script>
-    <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"><\/script>
-    <script src="/os/static/app.js?v=${Date.now()}"><\/script>
+    <script src="https://cdn.jsdelivr.net/npm/axios@1.6.0/dist/axios.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+    <script>
+(function() {
+  axios.defaults.withCredentials = true;
+  let csvData = [];
+  let currentUser = null;
+
+  window.addEventListener('DOMContentLoaded', async () => {
+    try {
+      const response = await axios.get('/api/os/session');
+      if (response.data.authenticated) {
+        currentUser = response.data.user;
+        showMainScreen();
+      } else {
+        showLoginScreen();
+      }
+    } catch (error) {
+      showLoginScreen();
+    }
+  });
+
+  function showLoginScreen() {
+    const loginHTML = '<div class="min-h-screen bg-gradient-to-br from-blue-50 to-blue-100 flex items-center justify-center p-4">' +
+      '<div class="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-md">' +
+        '<div class="text-center mb-8">' +
+          '<h1 class="text-3xl font-bold text-gray-800 mb-2">OS社専用システム</h1>' +
+          '<p class="text-gray-600">産業廃棄物管理票交付等状況報告書</p>' +
+        '</div>' +
+        '<div id="loginError" class="hidden mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded"></div>' +
+        '<form onsubmit="window.handleLogin(event); return false;" class="space-y-6">' +
+          '<div>' +
+            '<label class="block text-sm font-medium text-gray-700 mb-2">ログインID</label>' +
+            '<input type="text" id="loginId" required class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="ログインIDを入力">' +
+          '</div>' +
+          '<div>' +
+            '<label class="block text-sm font-medium text-gray-700 mb-2">パスワード</label>' +
+            '<input type="password" id="password" required class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="パスワードを入力">' +
+          '</div>' +
+          '<button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg transition duration-200">ログイン</button>' +
+        '</form>' +
+      '</div>' +
+    '</div>';
+    document.getElementById('app').innerHTML = loginHTML;
+  }
+
+  async function handleLogin(e) {
+    e.preventDefault();
+    const loginId = document.getElementById('loginId').value.trim();
+    const password = document.getElementById('password').value.trim();
+    
+    try {
+      const response = await axios.post('/api/os/login', {
+        login_id: loginId,
+        password: password
+      });
+      
+      if (response.data.user) {
+        currentUser = response.data.user;
+        showMainScreen();
+      }
+    } catch (error) {
+      const errorMsg = error.response?.data?.error || 'ログインに失敗しました';
+      document.getElementById('loginError').textContent = errorMsg;
+      document.getElementById('loginError').classList.remove('hidden');
+    }
+  }
+  window.handleLogin = handleLogin;
+
+  function showMainScreen() {
+    const mainHTML = '<div class="min-h-screen bg-gray-50">' +
+      '<header class="bg-white shadow-sm">' +
+        '<div class="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">' +
+          '<h1 class="text-2xl font-bold text-gray-800">OS社専用システム</h1>' +
+          '<div class="flex items-center gap-4">' +
+            '<span class="text-gray-600">ようこそ、' + currentUser.name + '様</span>' +
+            '<button onclick="window.handleLogout()" class="bg-gray-200 hover:bg-gray-300 text-gray-700 px-4 py-2 rounded-lg transition duration-200">ログアウト</button>' +
+          '</div>' +
+        '</div>' +
+      '</header>' +
+      '<div class="max-w-7xl mx-auto px-4 py-8">' +
+        '<div class="bg-white rounded-lg shadow-lg p-8 mb-8">' +
+          '<div class="flex items-center mb-6">' +
+            '<div class="bg-blue-600 text-white rounded-full w-10 h-10 flex items-center justify-center font-bold text-xl mr-4">1</div>' +
+            '<h2 class="text-2xl font-bold text-gray-800">CSVファイルをアップロード</h2>' +
+          '</div>' +
+          '<div class="flex flex-col items-center justify-center p-8">' +
+            '<input type="file" id="fileInput" accept=".csv" class="hidden" onchange="window.handleFileSelect(event)">' +
+            '<button onclick="document.getElementById(\'fileInput\').click()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-6 px-16 rounded-lg text-2xl transition duration-200 shadow-lg"><i class="fas fa-folder-open mr-3"></i>ファイルを選ぶ</button>' +
+            '<p class="text-sm text-gray-500 mt-4 text-center">CSVファイルを選択してください</p>' +
+          '</div>' +
+          '<div id="previewSection" class="mt-6 hidden">' +
+            '<h3 class="text-lg font-bold text-gray-700 mb-3"><i class="fas fa-eye mr-2"></i>データプレビュー（最初の5件）</h3>' +
+            '<div id="previewTable" class="overflow-x-auto"></div>' +
+            '<p class="text-sm text-gray-600 mt-3"><i class="fas fa-check-circle text-green-600 mr-2"></i><span id="rowCount">0</span>行のデータが読み込まれています</p>' +
+          '</div>' +
+        '</div>' +
+        '<div class="bg-white rounded-lg shadow-lg p-8">' +
+          '<div class="flex items-center mb-6">' +
+            '<div class="bg-blue-600 text-white rounded-full w-10 h-10 flex items-center justify-center font-bold text-xl mr-4">2</div>' +
+            '<h2 class="text-2xl font-bold text-gray-800">出力フォーマットを選択</h2>' +
+          '</div>' +
+          '<div class="grid grid-cols-1 md:grid-cols-3 gap-6">' +
+            '<button id="kumamotoBtn" onclick="alert(\'熊本市報告書出力機能は実装中です\')" disabled class="bg-blue-500 hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-bold py-8 px-6 rounded-lg text-2xl transition duration-200 shadow-lg hover:shadow-xl"><i class="fas fa-file-excel text-4xl mb-3 block"></i>熊本市報告書</button>' +
+            '<button id="format2Btn" onclick="alert(\'フォーマット2は準備中です\')" disabled class="bg-green-500 hover:bg-green-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-bold py-8 px-6 rounded-lg text-2xl transition duration-200 shadow-lg hover:shadow-xl"><i class="fas fa-file-alt text-4xl mb-3 block"></i>フォーマット2</button>' +
+            '<button id="format3Btn" onclick="alert(\'フォーマット3は準備中です\')" disabled class="bg-purple-500 hover:bg-purple-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-bold py-8 px-6 rounded-lg text-2xl transition duration-200 shadow-lg hover:shadow-xl"><i class="fas fa-file-invoice text-4xl mb-3 block"></i>フォーマット3</button>' +
+          '</div>' +
+        '</div>' +
+      '</div>' +
+    '</div>';
+    document.getElementById('app').innerHTML = mainHTML;
+  }
+
+  function handleFileSelect(e) {
+    const file = e.target.files[0];
+    if (!file || !file.name.endsWith('.csv')) {
+      alert('CSVファイルを選択してください');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = function(event) {
+      const parsed = Papa.parse(event.target.result, {
+        header: true,
+        skipEmptyLines: true
+      });
+      
+      if (parsed.errors.length > 0) {
+        alert('CSVファイルの読み込みに失敗しました');
+        return;
+      }
+
+      csvData = parsed.data;
+      const headers = Object.keys(csvData[0]);
+      const preview = csvData.slice(0, 5);
+
+      let tableHTML = '<div class="mb-3 text-sm text-gray-600"><i class="fas fa-file-csv mr-2"></i>ファイル名: ' + file.name + '</div>';
+      tableHTML += '<table class="min-w-full bg-white border border-gray-300">';
+      tableHTML += '<thead class="bg-gray-100"><tr>';
+      headers.forEach(function(h) {
+        tableHTML += '<th class="px-4 py-2 border text-left text-sm font-semibold">' + h + '</th>';
+      });
+      tableHTML += '</tr></thead><tbody>';
+      preview.forEach(function(row) {
+        tableHTML += '<tr class="hover:bg-gray-50">';
+        headers.forEach(function(h) {
+          tableHTML += '<td class="px-4 py-2 border text-sm">' + (row[h] || '') + '</td>';
+        });
+        tableHTML += '</tr>';
+      });
+      tableHTML += '</tbody></table>';
+
+      document.getElementById('previewTable').innerHTML = tableHTML;
+      document.getElementById('rowCount').textContent = csvData.length;
+      document.getElementById('previewSection').classList.remove('hidden');
+      document.getElementById('kumamotoBtn').disabled = false;
+      document.getElementById('format2Btn').disabled = false;
+      document.getElementById('format3Btn').disabled = false;
+
+      axios.post('/api/os/csv/upload', {
+        rows: csvData,
+        fileName: file.name
+      });
+    };
+    reader.readAsText(file, 'UTF-8');
+  }
+  window.handleFileSelect = handleFileSelect;
+
+  async function handleLogout() {
+    await axios.post('/api/os/logout');
+    currentUser = null;
+    csvData = [];
+    showLoginScreen();
+  }
+  window.handleLogout = handleLogout;
+})();
+    </script>
 </body>
-</html>`;
-  return c.html(html)
+</html>`)
 })
 
 // OS社専用 - セッション確認
