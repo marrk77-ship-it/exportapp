@@ -863,13 +863,15 @@ app.get('/os', (c) => {
     
     <script src="https://cdn.jsdelivr.net/npm/axios@1.6.0/dist/axios.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/encoding-japanese@2.0.0/encoding.min.js"></script>
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
     <script>
 (function() {
   axios.defaults.withCredentials = true;
   let csvData = [];
   let currentUser = null;
 
-  window.addEventListener('DOMContentLoaded', async () => {
+  window.addEventListener('DOMContentLoaded', async function() {
     try {
       const response = await axios.get('/api/os/session');
       if (response.data.authenticated) {
@@ -907,12 +909,13 @@ app.get('/os', (c) => {
     document.getElementById('app').innerHTML = loginHTML;
   }
 
-  async function handleLogin(e) {
+  window.handleLogin = async function(e) {
     e.preventDefault();
-    const loginId = document.getElementById('loginId').value.trim();
-    const password = document.getElementById('password').value.trim();
-    
+    const errorDiv = document.getElementById('loginError');
     try {
+      const loginId = document.getElementById('loginId').value.trim();
+      const password = document.getElementById('password').value.trim();
+      
       const response = await axios.post('/api/os/login', {
         login_id: loginId,
         password: password
@@ -923,12 +926,10 @@ app.get('/os', (c) => {
         showMainScreen();
       }
     } catch (error) {
-      const errorMsg = error.response?.data?.error || 'ログインに失敗しました';
-      document.getElementById('loginError').textContent = errorMsg;
-      document.getElementById('loginError').classList.remove('hidden');
+      errorDiv.textContent = error.response?.data?.error || 'ログインに失敗しました';
+      errorDiv.classList.remove('hidden');
     }
-  }
-  window.handleLogin = handleLogin;
+  };
 
   function showMainScreen() {
     const mainHTML = '<div class="min-h-screen bg-gray-50">' +
@@ -949,13 +950,18 @@ app.get('/os', (c) => {
           '</div>' +
           '<div class="flex flex-col items-center justify-center p-8">' +
             '<input type="file" id="fileInput" accept=".csv" class="hidden" onchange="window.handleFileSelect(event)">' +
-            '<button onclick="document.getElementById(\'fileInput\').click()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-6 px-16 rounded-lg text-2xl transition duration-200 shadow-lg"><i class="fas fa-folder-open mr-3"></i>ファイルを選ぶ</button>' +
+            '<button id="selectFileBtn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-6 px-16 rounded-lg text-2xl transition duration-200 shadow-lg">' +
+              '<i class="fas fa-folder-open mr-3"></i>ファイルを選ぶ' +
+            '</button>' +
             '<p class="text-sm text-gray-500 mt-4 text-center">CSVファイルを選択してください</p>' +
           '</div>' +
           '<div id="previewSection" class="mt-6 hidden">' +
             '<h3 class="text-lg font-bold text-gray-700 mb-3"><i class="fas fa-eye mr-2"></i>データプレビュー（最初の5件）</h3>' +
             '<div id="previewTable" class="overflow-x-auto"></div>' +
-            '<p class="text-sm text-gray-600 mt-3"><i class="fas fa-check-circle text-green-600 mr-2"></i><span id="rowCount">0</span>行のデータが読み込まれています</p>' +
+            '<p class="text-sm text-gray-600 mt-3">' +
+              '<i class="fas fa-check-circle text-green-600 mr-2"></i>' +
+              '<span id="rowCount">0</span>行のデータが読み込まれています' +
+            '</p>' +
           '</div>' +
         '</div>' +
         '<div class="bg-white rounded-lg shadow-lg p-8">' +
@@ -964,46 +970,101 @@ app.get('/os', (c) => {
             '<h2 class="text-2xl font-bold text-gray-800">出力フォーマットを選択</h2>' +
           '</div>' +
           '<div class="grid grid-cols-1 md:grid-cols-3 gap-6">' +
-            '<button id="kumamotoBtn" onclick="alert(\'熊本市報告書出力機能は実装中です\')" disabled class="bg-blue-500 hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-bold py-8 px-6 rounded-lg text-2xl transition duration-200 shadow-lg hover:shadow-xl"><i class="fas fa-file-excel text-4xl mb-3 block"></i>熊本市報告書</button>' +
-            '<button id="format2Btn" onclick="alert(\'フォーマット2は準備中です\')" disabled class="bg-green-500 hover:bg-green-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-bold py-8 px-6 rounded-lg text-2xl transition duration-200 shadow-lg hover:shadow-xl"><i class="fas fa-file-alt text-4xl mb-3 block"></i>フォーマット2</button>' +
-            '<button id="format3Btn" onclick="alert(\'フォーマット3は準備中です\')" disabled class="bg-purple-500 hover:bg-purple-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-bold py-8 px-6 rounded-lg text-2xl transition duration-200 shadow-lg hover:shadow-xl"><i class="fas fa-file-invoice text-4xl mb-3 block"></i>フォーマット3</button>' +
+            '<button id="kumamotoBtn" disabled class="bg-blue-500 hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-bold py-8 px-6 rounded-lg text-2xl transition duration-200 shadow-lg hover:shadow-xl">' +
+              '<i class="fas fa-file-excel text-4xl mb-3 block"></i>' +
+              '委附表2（新産廃税）' +
+            '</button>' +
+            '<button id="format2Btn" disabled class="bg-green-500 hover:bg-green-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-bold py-8 px-6 rounded-lg text-2xl transition duration-200 shadow-lg hover:shadow-xl">' +
+              '<i class="fas fa-file-alt text-4xl mb-3 block"></i>' +
+              'フォーマット2' +
+            '</button>' +
+            '<button id="format3Btn" disabled class="bg-purple-500 hover:bg-purple-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-bold py-8 px-6 rounded-lg text-2xl transition duration-200 shadow-lg hover:shadow-xl">' +
+              '<i class="fas fa-file-invoice text-4xl mb-3 block"></i>' +
+              'フォーマット3' +
+            '</button>' +
           '</div>' +
         '</div>' +
       '</div>' +
     '</div>';
     document.getElementById('app').innerHTML = mainHTML;
+    
+    // ファイル選択ボタンのイベントリスナーを追加
+    document.getElementById('selectFileBtn').addEventListener('click', function() {
+      document.getElementById('fileInput').click();
+    });
+    
+    // 出力ボタンのイベントリスナーを追加
+    document.getElementById('kumamotoBtn').addEventListener('click', function() {
+      generateIfu2Excel();
+    });
+    document.getElementById('format2Btn').addEventListener('click', function() {
+      alert('フォーマット2は準備中です');
+    });
+    document.getElementById('format3Btn').addEventListener('click', function() {
+      alert('フォーマット3は準備中です');
+    });
   }
 
-  function handleFileSelect(e) {
+  window.handleFileSelect = function(e) {
     const file = e.target.files[0];
     if (!file || !file.name.endsWith('.csv')) {
       alert('CSVファイルを選択してください');
       return;
     }
-
+    
     const reader = new FileReader();
     reader.onload = function(event) {
-      const parsed = Papa.parse(event.target.result, {
+      // バイト配列として読み込み
+      const codes = new Uint8Array(event.target.result);
+      
+      // 文字エンコーディングを自動検出
+      const detectedEncoding = Encoding.detect(codes);
+      console.log('検出されたエンコーディング:', detectedEncoding);
+      
+      // UnicodeArrayに変換
+      const unicodeArray = Encoding.convert(codes, {
+        to: 'UNICODE',
+        from: detectedEncoding
+      });
+      
+      // 文字列に変換
+      const csvText = Encoding.codeToString(unicodeArray);
+      
+      // CSVをパース
+      const parsed = Papa.parse(csvText, {
         header: true,
         skipEmptyLines: true
       });
       
       if (parsed.errors.length > 0) {
+        console.error('CSV parse errors:', parsed.errors);
         alert('CSVファイルの読み込みに失敗しました');
         return;
       }
-
+      
       csvData = parsed.data;
+      
+      if (!csvData || csvData.length === 0) {
+        alert('CSVファイルにデータがありません');
+        return;
+      }
+      
       const headers = Object.keys(csvData[0]);
       const preview = csvData.slice(0, 5);
-
-      let tableHTML = '<div class="mb-3 text-sm text-gray-600"><i class="fas fa-file-csv mr-2"></i>ファイル名: ' + file.name + '</div>';
-      tableHTML += '<table class="min-w-full bg-white border border-gray-300">';
-      tableHTML += '<thead class="bg-gray-100"><tr>';
+      
+      let tableHTML = '<div class="mb-3 text-sm text-gray-600">' +
+        '<i class="fas fa-file-csv mr-2"></i>ファイル名: ' + file.name +
+        ' <span class="ml-2 text-xs text-gray-500">(' + detectedEncoding + ')</span>' +
+      '</div>' +
+      '<table class="min-w-full bg-white border border-gray-300">' +
+        '<thead class="bg-gray-100"><tr>';
+      
       headers.forEach(function(h) {
         tableHTML += '<th class="px-4 py-2 border text-left text-sm font-semibold">' + h + '</th>';
       });
+      
       tableHTML += '</tr></thead><tbody>';
+      
       preview.forEach(function(row) {
         tableHTML += '<tr class="hover:bg-gray-50">';
         headers.forEach(function(h) {
@@ -1011,31 +1072,210 @@ app.get('/os', (c) => {
         });
         tableHTML += '</tr>';
       });
+      
       tableHTML += '</tbody></table>';
-
+      
       document.getElementById('previewTable').innerHTML = tableHTML;
       document.getElementById('rowCount').textContent = csvData.length;
       document.getElementById('previewSection').classList.remove('hidden');
       document.getElementById('kumamotoBtn').disabled = false;
       document.getElementById('format2Btn').disabled = false;
       document.getElementById('format3Btn').disabled = false;
-
+      
       axios.post('/api/os/csv/upload', {
         rows: csvData,
         fileName: file.name
       });
     };
-    reader.readAsText(file, 'UTF-8');
-  }
-  window.handleFileSelect = handleFileSelect;
+    
+    // ArrayBufferとして読み込む（エンコーディング検出のため）
+    reader.readAsArrayBuffer(file);
+  };
 
-  async function handleLogout() {
-    await axios.post('/api/os/logout');
-    currentUser = null;
-    csvData = [];
-    showLoginScreen();
+  window.handleLogout = async function() {
+    try {
+      await axios.post('/api/os/logout');
+      currentUser = null;
+      csvData = [];
+      showLoginScreen();
+    } catch (error) {
+      console.error('Logout error:', error);
+    }
+  };
+
+  // 委附表2Excel生成機能
+  async function generateIfu2Excel() {
+    if (!csvData || csvData.length === 0) {
+      alert('CSVデータがアップロードされていません');
+      return;
+    }
+
+    try {
+      // ローディング表示
+      const btn = document.getElementById('kumamotoBtn');
+      const originalText = btn.innerHTML;
+      btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>生成中...';
+      btn.disabled = true;
+
+      // テンプレートファイルを取得
+      const templateResponse = await fetch('/static/委附表2_テンプレート.xlsx');
+      const templateArrayBuffer = await templateResponse.arrayBuffer();
+      
+      // SheetJSでテンプレートを読み込み
+      const workbook = XLSX.read(templateArrayBuffer, { type: 'array', cellStyles: true });
+      const worksheet = workbook.Sheets['委附表2'];
+      
+      // データをフィルタリング・集計
+      const result = processOSData(csvData);
+      
+      if (!result.success) {
+        alert(result.error);
+        btn.innerHTML = originalText;
+        btn.disabled = false;
+        return;
+      }
+      
+      // Excelにデータを入力
+      fillIfu2Template(worksheet, result.monthlySummary);
+      
+      // Excelファイルを生成
+      const wbout = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
+      const blob = new Blob([wbout], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      
+      // ダウンロード
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = '委附表2_' + new Date().toISOString().substring(0, 10) + '.xlsx';
+      a.click();
+      window.URL.revokeObjectURL(url);
+      
+      btn.innerHTML = originalText;
+      btn.disabled = false;
+      
+      alert('委附表2を生成しました！\\n\\n処理件数: ' + result.totalRecords + '件\\n対象月: ' + result.months.join(', '));
+      
+    } catch (error) {
+      console.error('Excel生成エラー:', error);
+      alert('Excel生成中にエラーが発生しました: ' + error.message);
+      const btn = document.getElementById('kumamotoBtn');
+      btn.innerHTML = '<i class="fas fa-file-excel text-4xl mb-3 block"></i>委附表2（新産廃税）';
+      btn.disabled = false;
+    }
   }
-  window.handleLogout = handleLogout;
+
+  // OSデータを処理（フィルタリング・集計）
+  function processOSData(data) {
+    const EXCLUDE_COMPANY = '（有）オー・エス収集センター';
+    const filteredData = [];
+    
+    for (const row of data) {
+      const company = row['排出事業者名'] || '';
+      const wasteCategory = row['一般廃棄物or産業廃棄物'] || '';
+      const method = row['処分方法a'] || '';
+      
+      // フィルタリング条件
+      if (company !== EXCLUDE_COMPANY && 
+          wasteCategory === '産業廃棄物' && 
+          method === '最終処分') {
+        
+        const dateStr = row['計量年月日'] || '';
+        let yearMonth = '不明';
+        
+        if (dateStr) {
+          try {
+            const date = new Date(dateStr);
+            yearMonth = date.getFullYear() + '-' + String(date.getMonth() + 1).padStart(2, '0');
+          } catch (e) {
+            console.error('日付解析エラー:', dateStr);
+          }
+        }
+        
+        const wasteType = row['廃棄物種類名'] || '';
+        const weight = parseFloat(row['重容量']) || 0;
+        
+        filteredData.push({
+          yearMonth: yearMonth,
+          wasteType: wasteType,
+          weight: weight
+        });
+      }
+    }
+    
+    if (filteredData.length === 0) {
+      return {
+        success: false,
+        error: '条件に一致するデータがありません。\\n（産業廃棄物・最終処分・排出事業者が除外対象でないデータ）'
+      };
+    }
+    
+    // 月別・廃棄物種類別に集計
+    const monthlySummary = {};
+    for (const item of filteredData) {
+      if (!monthlySummary[item.yearMonth]) {
+        monthlySummary[item.yearMonth] = {};
+      }
+      if (!monthlySummary[item.yearMonth][item.wasteType]) {
+        monthlySummary[item.yearMonth][item.wasteType] = 0;
+      }
+      monthlySummary[item.yearMonth][item.wasteType] += item.weight;
+    }
+    
+    const months = Object.keys(monthlySummary).sort();
+    
+    return {
+      success: true,
+      totalRecords: filteredData.length,
+      months: months,
+      monthlySummary: monthlySummary
+    };
+  }
+
+  // 委附表2テンプレートにデータを入力
+  function fillIfu2Template(worksheet, monthlySummary) {
+    // 廃棄物種類のマッピング
+    const wasteTypeMapping = {
+      '燃え殻': 11,
+      '汚泥': 12,
+      '廃油': 13,
+      '廃ﾌﾟﾗｽﾁｯｸ類': 14,
+      '紙くず': 15,
+      '木くず': 16,
+      '繊維くず': 17,
+      'ゴムくず': 20,
+      '金属くず': 21,
+      'ガラスくず、コンクリートくず及び陶磁器くず': 22,
+      '鉱さい': 23,
+      'がれき類': 24,
+      'ばいじん': 27
+    };
+    
+    const months = Object.keys(monthlySummary).sort().slice(0, 2);  // 最大2ヶ月
+    const monthStartRows = [11, 42];  // 1ヶ月目=11行、2ヶ月目=42行
+    
+    for (let monthIdx = 0; monthIdx < months.length; monthIdx++) {
+      const month = months[monthIdx];
+      const startRow = monthStartRows[monthIdx];
+      const wasteData = monthlySummary[month];
+      
+      // 実績月を設定（K6またはK37）
+      const monthCellRow = monthIdx === 0 ? 6 : 37;
+      const monthCell = XLSX.utils.encode_cell({ r: monthCellRow - 1, c: 10 });  // K列（0-indexed）
+      worksheet[monthCell] = { t: 's', v: month + '分' };
+      
+      // 各廃棄物種類のデータを入力
+      for (const [wasteType, totalWeight] of Object.entries(wasteData)) {
+        if (wasteType in wasteTypeMapping) {
+          const templateRow = wasteTypeMapping[wasteType];
+          const targetRow = startRow + (templateRow - 11);
+          
+          // O列（搬入重量）にデータを入力（O列=14、0-indexed）
+          const cell = XLSX.utils.encode_cell({ r: targetRow - 1, c: 14 });
+          worksheet[cell] = { t: 'n', v: totalWeight };
+        }
+      }
+    }
+  }
 })();
     </script>
 </body>
@@ -1054,7 +1294,6 @@ app.get('/api/os/session', async (c) => {
     const sessionData = base64Decode(sessionCookie)
     const session = JSON.parse(sessionData)
     
-    // ユーザー情報を取得
     const user = await c.env.DB.prepare(
       'SELECT id, login_id, name FROM os_users WHERE id = ?'
     ).bind(session.userId).first()
@@ -1071,59 +1310,70 @@ app.get('/api/os/session', async (c) => {
     }
     
     return c.json({ authenticated: false })
-  } catch (error) {
-    console.error('OS session error:', error)
+  } catch (e) {
+    console.error('Session check error:', e)
     return c.json({ authenticated: false })
   }
 })
 
 // OS社専用 - ログイン
 app.post('/api/os/login', async (c) => {
-  let { login_id, password } = await c.req.json()
+  const { login_id, password } = await c.req.json()
   
-  login_id = login_id?.trim()
-  password = password?.trim()
-
-  if (!login_id || !password) {
+  const trimmedLoginId = login_id?.trim()
+  const trimmedPassword = password?.trim()
+  
+  console.log('OS Login attempt:', { login_id: trimmedLoginId, password: '***' })
+  
+  if (!trimmedLoginId || !trimmedPassword) {
     return c.json({ error: 'ログインIDとパスワードを入力してください' }, 400)
   }
 
-  const user = await c.env.DB.prepare(
-    'SELECT * FROM os_users WHERE login_id = ?'
-  ).bind(login_id).first()
+  try {
+    const user = await c.env.DB.prepare(
+      'SELECT * FROM os_users WHERE login_id = ?'
+    ).bind(trimmedLoginId).first()
 
-  if (!user) {
-    return c.json({ error: 'ログインIDまたはパスワードが正しくありません' }, 401)
-  }
+    console.log('User found:', user ? 'yes' : 'no')
 
-  const isValid = await bcrypt.compare(password, user.password_hash)
-  
-  if (!isValid) {
-    return c.json({ error: 'ログインIDまたはパスワードが正しくありません' }, 401)
-  }
+    if (!user) {
+      return c.json({ error: 'ユーザーが見つかりません' }, 401)
+    }
 
-  const session = {
-    userId: user.id,
-    loginId: user.login_id,
-    createdAt: new Date().toISOString()
-  }
+    const passwordMatch = await bcrypt.compare(trimmedPassword, user.password_hash)
+    console.log('Password match:', passwordMatch)
 
-  const sessionCookie = base64Encode(JSON.stringify(session))
-  
-  setCookie(c, 'os_session', sessionCookie, {
-    httpOnly: true,
-    secure: true,
-    sameSite: 'Strict',
-    maxAge: 86400
-  })
+    if (!passwordMatch) {
+      return c.json({ error: 'パスワードが正しくありません' }, 401)
+    }
 
-  return c.json({
-    user: {
-      id: user.id,
+    const sessionData = {
+      userId: user.id,
       login_id: user.login_id,
       name: user.name
     }
-  })
+
+    const sessionCookie = base64Encode(JSON.stringify(sessionData))
+
+    setCookie(c, 'os_session', sessionCookie, {
+      maxAge: 86400,
+      httpOnly: true,
+      secure: false,
+      sameSite: 'Lax',
+      path: '/'
+    })
+
+    return c.json({
+      user: {
+        id: user.id,
+        login_id: user.login_id,
+        name: user.name
+      }
+    })
+  } catch (error: any) {
+    console.error('Login error:', error)
+    return c.json({ error: 'ログイン処理中にエラーが発生しました' }, 500)
+  }
 })
 
 // OS社専用 - ログアウト
@@ -1132,90 +1382,42 @@ app.post('/api/os/logout', (c) => {
   return c.json({ success: true })
 })
 
-// OS社専用 - CSVアップロード
+// OS社専用 - CSV アップロード
 app.post('/api/os/csv/upload', async (c) => {
   const sessionCookie = getCookie(c, 'os_session')
-  if (!sessionCookie) {
-    return c.json({ error: '認証が必要です' }, 401)
-  }
-
-  const sessionData = base64Decode(sessionCookie)
-  const session = JSON.parse(sessionData)
-  const userId = session.userId
-
-  const { rows, fileName } = await c.req.json()
   
-  if (!rows || !Array.isArray(rows) || rows.length === 0) {
-    return c.json({ error: 'データが空です' }, 400)
-  }
-
-  console.log(`OS CSV upload: user_id=${userId}, rows=${rows.length}, file=${fileName}`)
-
-  try {
-    // 既存データを削除
-    await c.env.DB.prepare('DELETE FROM os_csv_data WHERE user_id = ?').bind(userId).run()
-    await c.env.DB.prepare('DELETE FROM os_csv_uploads WHERE user_id = ?').bind(userId).run()
-
-    // アップロード履歴を作成
-    const uploadResult = await c.env.DB.prepare(
-      'INSERT INTO os_csv_uploads (user_id, file_name, row_count) VALUES (?, ?, ?)'
-    ).bind(userId, fileName, rows.length).run()
-
-    const uploadId = uploadResult.meta.last_row_id
-
-    // データを保存（バッチインサート）
-    const insertStart = Date.now()
-    
-    for (let i = 0; i < rows.length; i++) {
-      await c.env.DB.prepare(
-        'INSERT INTO os_csv_data (user_id, upload_id, row_data, row_number) VALUES (?, ?, ?, ?)'
-      ).bind(userId, uploadId, JSON.stringify(rows[i]), i + 1).run()
-    }
-
-    const insertTime = Date.now() - insertStart
-    console.log(`OS CSV upload completed: ${rows.length} rows in ${insertTime}ms`)
-
-    return c.json({
-      success: true,
-      count: rows.length,
-      uploadId: uploadId
-    })
-  } catch (error) {
-    console.error('OS CSV upload error:', error)
-    return c.json({ error: 'データの保存に失敗しました' }, 500)
-  }
-})
-
-// OS社専用 - 熊本市報告書出力（将来実装）
-app.post('/api/os/export/kumamoto', async (c) => {
-  const sessionCookie = getCookie(c, 'os_session')
   if (!sessionCookie) {
     return c.json({ error: '認証が必要です' }, 401)
   }
 
-  const sessionData = base64Decode(sessionCookie)
-  const session = JSON.parse(sessionData)
-  const userId = session.userId
-
   try {
-    // CSVデータを取得
-    const { results: csvRows } = await c.env.DB.prepare(
-      'SELECT row_data FROM os_csv_data WHERE user_id = ? ORDER BY row_number'
-    ).bind(userId).all()
+    const sessionData = base64Decode(sessionCookie)
+    const session = JSON.parse(sessionData)
+    const { rows, fileName } = await c.req.json()
 
-    if (!csvRows || csvRows.length === 0) {
-      return c.json({ error: 'CSVデータが見つかりません' }, 404)
-    }
+    await c.env.DB.prepare('DELETE FROM os_csv_data WHERE user_id = ?')
+      .bind(session.userId).run()
 
-    const data = csvRows.map(row => JSON.parse(row.row_data))
-    
-    // TODO: ExcelJS を使ってテンプレートにデータを埋め込む
-    // 現在は仮実装として、簡易的なエクセル生成を行う
-    
-    return c.json({ error: 'この機能は実装中です' }, 501)
-  } catch (error) {
-    console.error('OS export error:', error)
-    return c.json({ error: '出力に失敗しました' }, 500)
+    const stmt = c.env.DB.prepare(
+      'INSERT INTO os_csv_data (user_id, row_data) VALUES (?, ?)'
+    )
+    const batch = rows.map((row: any) => 
+      stmt.bind(session.userId, JSON.stringify(row))
+    )
+    await c.env.DB.batch(batch)
+
+    await c.env.DB.prepare(
+      `INSERT INTO os_csv_uploads (user_id, file_name, row_count, uploaded_at)
+       VALUES (?, ?, ?, datetime('now', '+9 hours'))`
+    ).bind(session.userId, fileName, rows.length).run()
+
+    return c.json({ 
+      success: true,
+      rowCount: rows.length
+    })
+  } catch (error: any) {
+    console.error('CSV upload error:', error)
+    return c.json({ error: 'アップロード処理中にエラーが発生しました' }, 500)
   }
 })
 
