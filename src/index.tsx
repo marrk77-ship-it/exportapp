@@ -864,12 +864,14 @@ app.get('/os', (c) => {
     <script src="https://cdn.jsdelivr.net/npm/axios@1.6.0/dist/axios.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/encoding-japanese@2.0.0/encoding.min.js"></script>
-    <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/pyodide/v0.25.0/full/pyodide.js"></script>
     <script>
 (function() {
   axios.defaults.withCredentials = true;
   let csvData = [];
   let currentUser = null;
+  let pyodide = null;
+  let pyodideLoading = false;
 
   window.addEventListener('DOMContentLoaded', async function() {
     try {
@@ -1103,27 +1105,58 @@ app.get('/os', (c) => {
     }
   };
 
-  // 委附表2Excel生成機能
+  // Pyodide初期化
+  async function initPyodide() {
+    if (pyodide) return pyodide;
+    if (pyodideLoading) {
+      while (pyodideLoading) {
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+      return pyodide;
+    }
+
+    pyodideLoading = true;
+    try {
+      console.log('Pyodide初期化中...');
+      pyodide = await loadPyodide({
+        indexURL: 'https://cdn.jsdelivr.net/pyodide/v0.25.0/full/'
+      });
+      
+      console.log('openpyxlインストール中...');
+      await pyodide.loadPackage('micropip');
+      await pyodide.runPythonAsync(\`
+        import micropip
+        await micropip.install('openpyxl')
+      \`);
+      
+      console.log('Pyodide初期化完了');
+      pyodideLoading = false;
+      return pyodide;
+    } catch (error) {
+      pyodideLoading = false;
+      throw error;
+    }
+  }
+
+  // 委附表2Excel生成機能（openpyxl使用）
   async function generateIfu2Excel() {
     if (!csvData || csvData.length === 0) {
       alert('CSVデータがアップロードされていません');
       return;
     }
 
-    try {
-      // ローディング表示
-      const btn = document.getElementById('kumamotoBtn');
-      const originalText = btn.innerHTML;
-      btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>生成中...';
-      btn.disabled = true;
+    const btn = document.getElementById('kumamotoBtn');
+    const originalText = btn.innerHTML;
 
-      // テンプレートファイルを取得
-      const templateResponse = await fetch('/static/委附表2_テンプレート.xlsx');
-      const templateArrayBuffer = await templateResponse.arrayBuffer();
+    try {
+      // Pyodide初期化（初回のみ）
+      btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>初期化中...';
+      btn.disabled = true;
       
-      // SheetJSでテンプレートを読み込み
-      const workbook = XLSX.read(templateArrayBuffer, { type: 'array', cellStyles: true });
-      const worksheet = workbook.Sheets['委附表2'];
+      await initPyodide();
+      
+      // ローディング表示
+      btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>生成中...';
       
       // データをフィルタリング・集計
       const result = processOSData(csvData);
@@ -1135,14 +1168,77 @@ app.get('/os', (c) => {
         return;
       }
       
-      // Excelにデータを入力
-      fillIfu2Template(worksheet, result.monthlySummary);
+      // テンプレートファイルを取得
+      const templateResponse = await fetch('/static/委附表2_テンプレート.xlsx');
+      const templateArrayBuffer = await templateResponse.arrayBuffer();
+      const templateBytes = new Uint8Array(templateArrayBuffer);
       
-      // Excelファイルを生成
-      const wbout = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
-      const blob = new Blob([wbout], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      // Pythonにデータを渡す
+      pyodide.globals.set('template_bytes', templateBytes);
+      pyodide.globals.set('monthly_summary', result.monthlySummary);
       
-      // ダウンロード
+      // Python側でExcel処理
+      const outputBytes = await pyodide.runPythonAsync(\`
+import openpyxl
+from io import BytesIO
+import json
+
+# 廃棄物種類のマッピング
+WASTE_TYPE_MAPPING = {
+    '燃え殻': 11,
+    '汚泥': 12,
+    '廃油': 13,
+    '廃ﾌﾟﾗｽﾁｯｸ類': 14,
+    '紙くず': 15,
+    '木くず': 16,
+    '繊維くず': 17,
+    'ゴムくず': 20,
+    '金属くず': 21,
+    'ガラスくず、コンクリートくず及び陶磁器くず': 22,
+    '鉱さい': 23,
+    'がれき類': 24,
+    'ばいじん': 27
+}
+
+# テンプレートを読み込み
+template_file = BytesIO(template_bytes.tobytes())
+wb = openpyxl.load_workbook(template_file)
+ws = wb['委附表2']
+
+# 月別データを処理
+monthly_data = monthly_summary.to_py()
+months = sorted(monthly_data.keys())[:2]  # 最大2ヶ月
+month_start_rows = [11, 42]  # 1ヶ月目=11行、2ヶ月目=42行
+
+for month_idx, month in enumerate(months):
+    start_row = month_start_rows[month_idx]
+    waste_data = monthly_data[month]
+    
+    # 実績月を設定（K6またはK37）
+    month_cell_row = 6 if month_idx == 0 else 37
+    ws.cell(row=month_cell_row, column=11).value = month + '分'
+    
+    # 各廃棄物種類のデータを入力
+    for waste_type, total_weight in waste_data.items():
+        if waste_type in WASTE_TYPE_MAPPING:
+            template_row = WASTE_TYPE_MAPPING[waste_type]
+            target_row = start_row + (template_row - 11)
+            
+            # O列（搬入重量）にデータを入力（O列=15）
+            ws.cell(row=target_row, column=15).value = total_weight
+
+# 出力
+output = BytesIO()
+wb.save(output)
+output.seek(0)
+output.getvalue()
+      \`);
+      
+      // Blobとしてダウンロード
+      const blob = new Blob([outputBytes.toJs()], { 
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' 
+      });
+      
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
@@ -1158,8 +1254,7 @@ app.get('/os', (c) => {
     } catch (error) {
       console.error('Excel生成エラー:', error);
       alert('Excel生成中にエラーが発生しました: ' + error.message);
-      const btn = document.getElementById('kumamotoBtn');
-      btn.innerHTML = '<i class="fas fa-file-excel text-4xl mb-3 block"></i>委附表2（新産廃税）';
+      btn.innerHTML = originalText;
       btn.disabled = false;
     }
   }
@@ -1231,51 +1326,6 @@ app.get('/os', (c) => {
     };
   }
 
-  // 委附表2テンプレートにデータを入力
-  function fillIfu2Template(worksheet, monthlySummary) {
-    // 廃棄物種類のマッピング
-    const wasteTypeMapping = {
-      '燃え殻': 11,
-      '汚泥': 12,
-      '廃油': 13,
-      '廃ﾌﾟﾗｽﾁｯｸ類': 14,
-      '紙くず': 15,
-      '木くず': 16,
-      '繊維くず': 17,
-      'ゴムくず': 20,
-      '金属くず': 21,
-      'ガラスくず、コンクリートくず及び陶磁器くず': 22,
-      '鉱さい': 23,
-      'がれき類': 24,
-      'ばいじん': 27
-    };
-    
-    const months = Object.keys(monthlySummary).sort().slice(0, 2);  // 最大2ヶ月
-    const monthStartRows = [11, 42];  // 1ヶ月目=11行、2ヶ月目=42行
-    
-    for (let monthIdx = 0; monthIdx < months.length; monthIdx++) {
-      const month = months[monthIdx];
-      const startRow = monthStartRows[monthIdx];
-      const wasteData = monthlySummary[month];
-      
-      // 実績月を設定（K6またはK37）
-      const monthCellRow = monthIdx === 0 ? 6 : 37;
-      const monthCell = XLSX.utils.encode_cell({ r: monthCellRow - 1, c: 10 });  // K列（0-indexed）
-      worksheet[monthCell] = { t: 's', v: month + '分' };
-      
-      // 各廃棄物種類のデータを入力
-      for (const [wasteType, totalWeight] of Object.entries(wasteData)) {
-        if (wasteType in wasteTypeMapping) {
-          const templateRow = wasteTypeMapping[wasteType];
-          const targetRow = startRow + (templateRow - 11);
-          
-          // O列（搬入重量）にデータを入力（O列=14、0-indexed）
-          const cell = XLSX.utils.encode_cell({ r: targetRow - 1, c: 14 });
-          worksheet[cell] = { t: 'n', v: totalWeight };
-        }
-      }
-    }
-  }
 })();
     </script>
 </body>
