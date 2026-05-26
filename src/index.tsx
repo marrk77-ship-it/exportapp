@@ -864,14 +864,11 @@ app.get('/os', (c) => {
     <script src="https://cdn.jsdelivr.net/npm/axios@1.6.0/dist/axios.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/encoding-japanese@2.0.0/encoding.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/pyodide/v0.25.0/full/pyodide.js"></script>
     <script>
 (function() {
   axios.defaults.withCredentials = true;
   let csvData = [];
   let currentUser = null;
-  let pyodide = null;
-  let pyodideLoading = false;
 
   window.addEventListener('DOMContentLoaded', async function() {
     try {
@@ -1105,38 +1102,7 @@ app.get('/os', (c) => {
     }
   };
 
-  // Pyodide初期化
-  async function initPyodide() {
-    if (pyodide) return pyodide;
-    if (pyodideLoading) {
-      while (pyodideLoading) {
-        await new Promise(resolve => setTimeout(resolve, 100));
-      }
-      return pyodide;
-    }
-
-    pyodideLoading = true;
-    try {
-      console.log('Pyodide初期化中...');
-      pyodide = await loadPyodide();
-      
-      console.log('openpyxlインストール中...');
-      await pyodide.loadPackage('micropip');
-      await pyodide.runPythonAsync(\`
-import micropip
-await micropip.install('openpyxl')
-      \`);
-      
-      console.log('Pyodide初期化完了');
-      pyodideLoading = false;
-      return pyodide;
-    } catch (error) {
-      pyodideLoading = false;
-      throw error;
-    }
-  }
-
-  // 委附表2Excel生成機能（openpyxl使用）
+  // 委附表2Excel生成機能（サーバー側処理）
   async function generateIfu2Excel() {
     if (!csvData || csvData.length === 0) {
       alert('CSVデータがアップロードされていません');
@@ -1147,96 +1113,19 @@ await micropip.install('openpyxl')
     const originalText = btn.innerHTML;
 
     try {
-      // Pyodide初期化（初回のみ）
-      btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>初期化中...';
-      btn.disabled = true;
-      
-      await initPyodide();
-      
       // ローディング表示
       btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>生成中...';
+      btn.disabled = true;
       
-      // データをフィルタリング・集計
-      const result = processOSData(csvData);
+      // サーバーにデータを送信してExcel生成
+      const response = await axios.post('/api/os/generate-ifu2', {
+        csvData: csvData
+      }, {
+        responseType: 'blob'
+      });
       
-      if (!result.success) {
-        alert(result.error);
-        btn.innerHTML = originalText;
-        btn.disabled = false;
-        return;
-      }
-      
-      // テンプレートファイルを取得
-      const templateResponse = await fetch('/static/委附表2_テンプレート.xlsx');
-      const templateArrayBuffer = await templateResponse.arrayBuffer();
-      const templateBytes = new Uint8Array(templateArrayBuffer);
-      
-      // Pythonにデータを渡す
-      pyodide.globals.set('template_bytes', templateBytes);
-      pyodide.globals.set('monthly_summary', result.monthlySummary);
-      
-      // Python側でExcel処理
-      const pythonCode = \`
-import openpyxl
-from io import BytesIO
-
-# 廃棄物種類のマッピング
-WASTE_TYPE_MAPPING = {
-    '燃え殻': 11,
-    '汚泥': 12,
-    '廃油': 13,
-    '廃ﾌﾟﾗｽﾁｯｸ類': 14,
-    '紙くず': 15,
-    '木くず': 16,
-    '繊維くず': 17,
-    'ゴムくず': 20,
-    '金属くず': 21,
-    'ガラスくず、コンクリートくず及び陶磁器くず': 22,
-    '鉱さい': 23,
-    'がれき類': 24,
-    'ばいじん': 27
-}
-
-# テンプレートを読み込み
-template_file = BytesIO(template_bytes.tobytes())
-wb = openpyxl.load_workbook(template_file)
-ws = wb['委附表2']
-
-# 月別データを処理
-monthly_data = monthly_summary.to_py()
-months = sorted(list(monthly_data.keys()))[:2]  # 最大2ヶ月
-month_start_rows = [11, 42]  # 1ヶ月目=11行、2ヶ月目=42行
-
-for month_idx in range(len(months)):
-    month = months[month_idx]
-    start_row = month_start_rows[month_idx]
-    waste_data = monthly_data[month]
-    
-    # 実績月を設定（K6またはK37）
-    month_cell_row = 6 if month_idx == 0 else 37
-    ws.cell(row=month_cell_row, column=11).value = month + '分'
-    
-    # 各廃棄物種類のデータを入力
-    for waste_type in waste_data:
-        total_weight = waste_data[waste_type]
-        if waste_type in WASTE_TYPE_MAPPING:
-            template_row = WASTE_TYPE_MAPPING[waste_type]
-            target_row = start_row + (template_row - 11)
-            
-            # O列（搬入重量）にデータを入力（O列=15）
-            ws.cell(row=target_row, column=15).value = total_weight
-
-# 出力
-output = BytesIO()
-wb.save(output)
-output.seek(0)
-output.getvalue()
-\`;
-      
-      const outputBytes = await pyodide.runPythonAsync(pythonCode);
-      
-      // Blobとしてダウンロード
-      const blob = new Blob([outputBytes.toJs()], { 
+      // Excelファイルをダウンロード
+      const blob = new Blob([response.data], { 
         type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' 
       });
       
@@ -1250,11 +1139,12 @@ output.getvalue()
       btn.innerHTML = originalText;
       btn.disabled = false;
       
-      alert('委附表2を生成しました！\\n\\n処理件数: ' + result.totalRecords + '件\\n対象月: ' + result.months.join(', '));
+      alert('委附表2を生成しました！');
       
     } catch (error) {
       console.error('Excel生成エラー:', error);
-      alert('Excel生成中にエラーが発生しました: ' + error.message);
+      const errorMsg = error.response?.data?.error || error.message || 'Excel生成中にエラーが発生しました';
+      alert('エラー: ' + errorMsg);
       btn.innerHTML = originalText;
       btn.disabled = false;
     }
@@ -1469,6 +1359,111 @@ app.post('/api/os/csv/upload', async (c) => {
   } catch (error: any) {
     console.error('CSV upload error:', error)
     return c.json({ error: 'アップロード処理中にエラーが発生しました' }, 500)
+  }
+})
+
+// OS社専用 - 委附表2生成
+app.post('/api/os/generate-ifu2', async (c) => {
+  const sessionCookie = getCookie(c, 'os_session')
+  if (!sessionCookie) {
+    return c.json({ error: '認証が必要です' }, 401)
+  }
+
+  try {
+    const { csvData } = await c.req.json()
+    
+    if (!csvData || csvData.length === 0) {
+      return c.json({ error: 'CSVデータが見つかりません' }, 400)
+    }
+
+    // 開発環境でのみPython処理を実行
+    if (typeof process !== 'undefined' && process.versions && process.versions.node) {
+      // Node.js環境（開発環境）
+      const { spawn } = await import('child_process')
+      const path = await import('path')
+      const fs = await import('fs')
+      
+      // 一時ファイルにCSVデータを保存
+      const tmpDir = '/tmp/ifu2-' + Date.now()
+      fs.mkdirSync(tmpDir, { recursive: true })
+      const inputPath = path.join(tmpDir, 'input.json')
+      const outputPath = path.join(tmpDir, 'output.xlsx')
+      
+      fs.writeFileSync(inputPath, JSON.stringify(csvData))
+      
+      // Pythonスクリプトを実行
+      const scriptPath = '/home/user/webapp/scripts/generate_ifu2.py'
+      const templatePath = '/home/user/webapp/templates/委附表2_テンプレート.xlsx'
+      
+      return new Promise((resolve, reject) => {
+        const pythonProcess = spawn('python3', [
+          scriptPath,
+          inputPath,
+          templatePath,
+          outputPath
+        ])
+        
+        let stdout = ''
+        let stderr = ''
+        
+        pythonProcess.stdout.on('data', (data) => {
+          stdout += data.toString()
+        })
+        
+        pythonProcess.stderr.on('data', (data) => {
+          stderr += data.toString()
+        })
+        
+        pythonProcess.on('close', (code) => {
+          if (code !== 0) {
+            console.error('Python script error:', stderr)
+            fs.rmSync(tmpDir, { recursive: true, force: true })
+            resolve(c.json({ 
+              error: 'Excel生成中にエラーが発生しました: ' + stderr 
+            }, 500))
+            return
+          }
+          
+          // 生成されたExcelファイルを読み込み
+          if (!fs.existsSync(outputPath)) {
+            fs.rmSync(tmpDir, { recursive: true, force: true })
+            resolve(c.json({ 
+              error: 'Excelファイルが生成されませんでした' 
+            }, 500))
+            return
+          }
+          
+          const excelBuffer = fs.readFileSync(outputPath)
+          
+          // 一時ファイルを削除
+          fs.rmSync(tmpDir, { recursive: true, force: true })
+          
+          // Excelファイルを返す
+          resolve(new Response(excelBuffer, {
+            headers: {
+              'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+              'Content-Disposition': `attachment; filename="委附表2_${new Date().toISOString().substring(0, 10)}.xlsx"`
+            }
+          }))
+        })
+        
+        pythonProcess.on('error', (error) => {
+          console.error('Failed to start Python process:', error)
+          fs.rmSync(tmpDir, { recursive: true, force: true })
+          resolve(c.json({ 
+            error: 'Python実行エラー: ' + error.message 
+          }, 500))
+        })
+      })
+    } else {
+      // Cloudflare Workers環境（本番環境）
+      return c.json({ 
+        error: 'この機能は開発環境でのみ利用可能です。本番環境では別の方法をご利用ください。' 
+      }, 501)
+    }
+  } catch (error: any) {
+    console.error('Excel generation error:', error)
+    return c.json({ error: 'Excel生成中にエラーが発生しました: ' + error.message }, 500)
   }
 })
 

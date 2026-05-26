@@ -155,32 +155,35 @@ def main():
     メイン処理
     
     引数:
-        sys.argv[1]: CSVデータ（JSON形式の文字列）
-        sys.argv[2]: 出力ファイルパス
+        sys.argv[1]: 入力JSONファイルパス（CSVデータ）
+        sys.argv[2]: テンプレートファイルパス
+        sys.argv[3]: 出力ファイルパス
     """
-    if len(sys.argv) < 3:
+    if len(sys.argv) < 4:
         print(json.dumps({
             'success': False,
             'error': '引数が不足しています'
-        }))
+        }), file=sys.stderr)
         sys.exit(1)
     
     try:
-        # CSVデータを解析
-        csv_json = sys.argv[1]
-        csv_data = json.loads(csv_json)
+        # 引数を取得
+        input_path = sys.argv[1]
+        template_path = sys.argv[2]
+        output_path = sys.argv[3]
         
-        output_path = sys.argv[2]
+        # CSVデータを読み込み
+        with open(input_path, 'r', encoding='utf-8') as f:
+            csv_data = json.load(f)
         
-        # テンプレートパス
-        script_dir = Path(__file__).parent
-        template_path = script_dir.parent / 'templates' / '委附表2_テンプレート.xlsx'
+        # テンプレートパスの確認
+        template_path = Path(template_path)
         
         if not template_path.exists():
             print(json.dumps({
                 'success': False,
                 'error': f'テンプレートファイルが見つかりません: {template_path}'
-            }))
+            }), file=sys.stderr)
             sys.exit(1)
         
         # データ抽出
@@ -190,7 +193,7 @@ def main():
             print(json.dumps({
                 'success': False,
                 'error': '条件に一致するデータがありません（産業廃棄物・最終処分のみ）'
-            }))
+            }), file=sys.stderr)
             sys.exit(1)
         
         # 集計
@@ -212,7 +215,7 @@ def main():
         print(json.dumps({
             'success': False,
             'error': str(e)
-        }, ensure_ascii=False))
+        }, ensure_ascii=False), file=sys.stderr)
         sys.exit(1)
 
 if __name__ == '__main__':
