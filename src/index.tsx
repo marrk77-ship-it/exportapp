@@ -1118,15 +1118,13 @@ app.get('/os', (c) => {
     pyodideLoading = true;
     try {
       console.log('Pyodide初期化中...');
-      pyodide = await loadPyodide({
-        indexURL: 'https://cdn.jsdelivr.net/pyodide/v0.25.0/full/'
-      });
+      pyodide = await loadPyodide();
       
       console.log('openpyxlインストール中...');
       await pyodide.loadPackage('micropip');
       await pyodide.runPythonAsync(\`
-        import micropip
-        await micropip.install('openpyxl')
+import micropip
+await micropip.install('openpyxl')
       \`);
       
       console.log('Pyodide初期化完了');
@@ -1178,10 +1176,9 @@ app.get('/os', (c) => {
       pyodide.globals.set('monthly_summary', result.monthlySummary);
       
       // Python側でExcel処理
-      const outputBytes = await pyodide.runPythonAsync(\`
+      const pythonCode = \`
 import openpyxl
 from io import BytesIO
-import json
 
 # 廃棄物種類のマッピング
 WASTE_TYPE_MAPPING = {
@@ -1207,10 +1204,11 @@ ws = wb['委附表2']
 
 # 月別データを処理
 monthly_data = monthly_summary.to_py()
-months = sorted(monthly_data.keys())[:2]  # 最大2ヶ月
+months = sorted(list(monthly_data.keys()))[:2]  # 最大2ヶ月
 month_start_rows = [11, 42]  # 1ヶ月目=11行、2ヶ月目=42行
 
-for month_idx, month in enumerate(months):
+for month_idx in range(len(months)):
+    month = months[month_idx]
     start_row = month_start_rows[month_idx]
     waste_data = monthly_data[month]
     
@@ -1219,7 +1217,8 @@ for month_idx, month in enumerate(months):
     ws.cell(row=month_cell_row, column=11).value = month + '分'
     
     # 各廃棄物種類のデータを入力
-    for waste_type, total_weight in waste_data.items():
+    for waste_type in waste_data:
+        total_weight = waste_data[waste_type]
         if waste_type in WASTE_TYPE_MAPPING:
             template_row = WASTE_TYPE_MAPPING[waste_type]
             target_row = start_row + (template_row - 11)
@@ -1232,7 +1231,9 @@ output = BytesIO()
 wb.save(output)
 output.seek(0)
 output.getvalue()
-      \`);
+\`;
+      
+      const outputBytes = await pyodide.runPythonAsync(pythonCode);
       
       // Blobとしてダウンロード
       const blob = new Blob([outputBytes.toJs()], { 
