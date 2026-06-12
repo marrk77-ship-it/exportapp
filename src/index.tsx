@@ -1120,9 +1120,17 @@ app.get('/os', (c) => {
       // Python APIサーバーにデータを送信してExcel生成
       // 開発環境: ポート3001のPython APIサーバーを使用
       // 本番環境: 同じドメインの /api/os/generate-ifu2 を使用
-      const apiUrl = window.location.hostname === 'localhost' || window.location.hostname.includes('sandbox')
-        ? window.location.protocol + '//' + window.location.hostname.replace(':3000', ':3001') + '/generate-ifu2'
-        : '/api/os/generate-ifu2';
+      let apiUrl;
+      if (window.location.hostname === 'localhost') {
+        // ローカル開発環境
+        apiUrl = 'http://localhost:3001/generate-ifu2';
+      } else if (window.location.hostname.includes('sandbox.novita.ai')) {
+        // Novita Sandbox環境: ポート番号をURLに含める
+        apiUrl = window.location.protocol + '//' + window.location.hostname.replace('3000-', '3001-') + '/generate-ifu2';
+      } else {
+        // 本番環境
+        apiUrl = '/api/os/generate-ifu2';
+      }
       
       const response = await axios.post(apiUrl, {
         csvData: csvData
