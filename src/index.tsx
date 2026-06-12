@@ -1138,7 +1138,8 @@ app.get('/os', (c) => {
       const response = await axios.post(apiUrl, {
         csvData: csvData
       }, {
-        responseType: 'blob'
+        responseType: 'blob',
+        withCredentials: false  // Python APIサーバーはCookieを使わないため無効化
       });
       
       // Excelファイルをダウンロード
