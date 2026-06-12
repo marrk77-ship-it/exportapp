@@ -1340,10 +1340,10 @@ app.post('/api/os/csv/upload', async (c) => {
       .bind(session.userId).run()
 
     const stmt = c.env.DB.prepare(
-      'INSERT INTO os_csv_data (user_id, row_data) VALUES (?, ?)'
+      'INSERT INTO os_csv_data (user_id, row_data, row_number) VALUES (?, ?, ?)'
     )
-    const batch = rows.map((row: any) => 
-      stmt.bind(session.userId, JSON.stringify(row))
+    const batch = rows.map((row: any, index: number) => 
+      stmt.bind(session.userId, JSON.stringify(row), index + 1)
     )
     await c.env.DB.batch(batch)
 
@@ -1377,7 +1377,16 @@ app.post('/api/os/generate-ifu2', async (c) => {
     }
 
     // 開発環境でのみPython処理を実行
-    if (typeof process !== 'undefined' && process.versions && process.versions.node) {
+    // child_processモジュールが実際に使えるかチェック
+    let canUseNodeModules = false
+    try {
+      const { spawn } = await import('child_process')
+      canUseNodeModules = typeof spawn === 'function'
+    } catch (e) {
+      canUseNodeModules = false
+    }
+    
+    if (canUseNodeModules) {
       // Node.js環境（開発環境）
       const { spawn } = await import('child_process')
       const path = await import('path')
