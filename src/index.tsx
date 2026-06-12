@@ -1117,8 +1117,14 @@ app.get('/os', (c) => {
       btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>生成中...';
       btn.disabled = true;
       
-      // サーバーにデータを送信してExcel生成
-      const response = await axios.post('/api/os/generate-ifu2', {
+      // Python APIサーバーにデータを送信してExcel生成
+      // 開発環境: ポート3001のPython APIサーバーを使用
+      // 本番環境: 同じドメインの /api/os/generate-ifu2 を使用
+      const apiUrl = window.location.hostname === 'localhost' || window.location.hostname.includes('sandbox')
+        ? window.location.protocol + '//' + window.location.hostname.replace(':3000', ':3001') + '/generate-ifu2'
+        : '/api/os/generate-ifu2';
+      
+      const response = await axios.post(apiUrl, {
         csvData: csvData
       }, {
         responseType: 'blob'
@@ -1377,35 +1383,44 @@ app.post('/api/os/generate-ifu2', async (c) => {
     }
 
     // 開発環境でのみPython処理を実行
-    // child_processモジュールが実際に使えるかチェック
+    // child_processとfsモジュールが実際に使えるかチェック
     let canUseNodeModules = false
+    let fsModule: any = null
+    let pathModule: any = null
+    let spawnFn: any = null
+    
     try {
-      const { spawn } = await import('child_process')
-      canUseNodeModules = typeof spawn === 'function'
+      const childProcess = await import('child_process')
+      fsModule = await import('fs')
+      pathModule = await import('path')
+      spawnFn = childProcess.spawn
+      
+      // 実際にfsが使えるかテスト
+      const testDir = '/tmp/test-' + Date.now()
+      fsModule.mkdirSync(testDir, { recursive: true })
+      fsModule.rmSync(testDir, { recursive: true, force: true })
+      canUseNodeModules = true
     } catch (e) {
+      console.log('Node.js modules not available:', e)
       canUseNodeModules = false
     }
     
-    if (canUseNodeModules) {
+    if (canUseNodeModules && fsModule && pathModule && spawnFn) {
       // Node.js環境（開発環境）
-      const { spawn } = await import('child_process')
-      const path = await import('path')
-      const fs = await import('fs')
-      
       // 一時ファイルにCSVデータを保存
       const tmpDir = '/tmp/ifu2-' + Date.now()
-      fs.mkdirSync(tmpDir, { recursive: true })
-      const inputPath = path.join(tmpDir, 'input.json')
-      const outputPath = path.join(tmpDir, 'output.xlsx')
+      fsModule.mkdirSync(tmpDir, { recursive: true })
+      const inputPath = pathModule.join(tmpDir, 'input.json')
+      const outputPath = pathModule.join(tmpDir, 'output.xlsx')
       
-      fs.writeFileSync(inputPath, JSON.stringify(csvData))
+      fsModule.writeFileSync(inputPath, JSON.stringify(csvData))
       
       // Pythonスクリプトを実行
       const scriptPath = '/home/user/webapp/scripts/generate_ifu2.py'
       const templatePath = '/home/user/webapp/templates/委附表2_テンプレート.xlsx'
       
       return new Promise((resolve, reject) => {
-        const pythonProcess = spawn('python3', [
+        const pythonProcess = spawnFn('python3', [
           scriptPath,
           inputPath,
           templatePath,
@@ -1426,7 +1441,7 @@ app.post('/api/os/generate-ifu2', async (c) => {
         pythonProcess.on('close', (code) => {
           if (code !== 0) {
             console.error('Python script error:', stderr)
-            fs.rmSync(tmpDir, { recursive: true, force: true })
+            fsModule.rmSync(tmpDir, { recursive: true, force: true })
             resolve(c.json({ 
               error: 'Excel生成中にエラーが発生しました: ' + stderr 
             }, 500))
@@ -1434,18 +1449,18 @@ app.post('/api/os/generate-ifu2', async (c) => {
           }
           
           // 生成されたExcelファイルを読み込み
-          if (!fs.existsSync(outputPath)) {
-            fs.rmSync(tmpDir, { recursive: true, force: true })
+          if (!fsModule.existsSync(outputPath)) {
+            fsModule.rmSync(tmpDir, { recursive: true, force: true })
             resolve(c.json({ 
               error: 'Excelファイルが生成されませんでした' 
             }, 500))
             return
           }
           
-          const excelBuffer = fs.readFileSync(outputPath)
+          const excelBuffer = fsModule.readFileSync(outputPath)
           
           // 一時ファイルを削除
-          fs.rmSync(tmpDir, { recursive: true, force: true })
+          fsModule.rmSync(tmpDir, { recursive: true, force: true })
           
           // Excelファイルを返す
           resolve(new Response(excelBuffer, {
@@ -1458,16 +1473,21 @@ app.post('/api/os/generate-ifu2', async (c) => {
         
         pythonProcess.on('error', (error) => {
           console.error('Failed to start Python process:', error)
-          fs.rmSync(tmpDir, { recursive: true, force: true })
+          fsModule.rmSync(tmpDir, { recursive: true, force: true })
           resolve(c.json({ 
             error: 'Python実行エラー: ' + error.message 
           }, 500))
         })
       })
     } else {
-      // Cloudflare Workers環境（本番環境）
+      // Cloudflare Workers環境（本番環境）または Wrangler Dev環境
       return c.json({ 
-        error: 'この機能は開発環境でのみ利用可能です。本番環境では別の方法をご利用ください。' 
+        error: 'この機能は現在の環境では利用できません。\n\n' +
+               '【理由】\n' +
+               'Cloudflare Workers/Wrangler環境では、Pythonスクリプトの実行やファイルシステムアクセスができません。\n\n' +
+               '【対応方法】\n' +
+               '1. 本番環境への対応が必要な場合は、外部API（AWS Lambda等）での実装をご検討ください\n' +
+               '2. または、ブラウザ側処理（SheetJS）への切り替えをご検討ください（ただし、複雑な書式の保持は困難）'
       }, 501)
     }
   } catch (error: any) {
