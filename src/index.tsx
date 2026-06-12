@@ -1132,6 +1132,9 @@ app.get('/os', (c) => {
         apiUrl = '/api/os/generate-ifu2';
       }
       
+      console.log('Excel生成API URL:', apiUrl);
+      console.log('CSVデータ件数:', csvData.length);
+      
       const response = await axios.post(apiUrl, {
         csvData: csvData
       }, {
@@ -1156,7 +1159,9 @@ app.get('/os', (c) => {
       alert('委附表2を生成しました！');
       
     } catch (error) {
-      console.error('Excel生成エラー:', error);
+      console.error('Excel生成エラー（詳細）:', error);
+      console.error('エラーレスポンス:', error.response);
+      console.error('エラーメッセージ:', error.message);
       const errorMsg = error.response?.data?.error || error.message || 'Excel生成中にエラーが発生しました';
       alert('エラー: ' + errorMsg);
       btn.innerHTML = originalText;
